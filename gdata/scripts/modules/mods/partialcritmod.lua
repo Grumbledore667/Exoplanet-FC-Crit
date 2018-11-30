@@ -171,7 +171,7 @@ function partialcritmod:playershot(item)
        return modifier     		
      end
 	end
-	randresult = nil
+	
 	local modifier = getGlobalParam("dmgOutgoingMultiplier")
 	return modifier
 
