@@ -154,11 +154,7 @@ function partialcritmod:playershot(item)
        return modifier     		
      end
 	end
-<<<<<<< HEAD
 	partialcritmod.randresult = nil
-=======
-	
->>>>>>> a08c0faae379b22631b6978bcb700c5d65339dd4
 	local modifier = getGlobalParam("dmgOutgoingMultiplier")
 	partialcritmod.color = "[colour='FFFFFFFF']"
 	return modifier
