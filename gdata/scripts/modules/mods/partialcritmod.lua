@@ -1,6 +1,6 @@
 --Mod Stuff
 local stringx = require "pl.stringx"
-local loadmodoptions = require "ui.menu.modoptions"
+local loadmodoptions = require "mods.modoptions"
 local ItemsData = (require "itemsData")
 local random = require "random"
 local MinMaxChance =
@@ -100,7 +100,7 @@ local difficulty =
   ["Easy"] =
   {
    MinChance = 0,
-   MaxChance = 20,
+   MaxChance = 40,
   },
   ["Normal"] =
   {
@@ -114,27 +114,6 @@ local difficulty =
   },
 }
 
---[[
-Redesign of Hitchance Calculation with new stats taken into account.
-
-What to achive:
--taking wpn type into account
--taking difficulty into account
--easy mode high crit chance less partial hit chance.
--normal mode like it is now
--die lots of partial hits 
-
-
-
-
-
-
-
-
-
-
-
-]]--
 local partialcritmod = {
  basevalue = 25,
  p = nil,
@@ -145,8 +124,9 @@ local partialcritmod = {
  critenabled = nil,
  partialenabled = nil,
  randresult = nil,
+ color = "",
 }
---+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 function partialcritmod:playershot(item)
 	settingdefaults()
 	local minhit = 0
@@ -158,28 +138,31 @@ function partialcritmod:playershot(item)
 	 minhit = 0
 	 maxhit = 0
 	end
-	log(partialcritmod.basevalue .. " " .. partialcritmod.randmin .. " " .. minhit)
 	if partialcritmod.modenabled == true then
+	 --partial hit
 	 if partialcritmod.randresult <= (partialcritmod.basevalue + partialcritmod.randmin + minhit) and partialcritmod.partialenabled == true then
        partialcritmod.randresult = nil
 	   local modifier = getGlobalParam("dmgOutgoingMultiplier") - (random.random(2,5)/10)
+	   partialcritmod.color = "[colour='FFFF0000']"
 	   return modifier     		
 	 end
+	 --crit hit
 	 if partialcritmod.randresult >= (partialcritmod.randbase - partialcritmod.basevalue - partialcritmod.randmin - maxhit) and partialcritmod.critenabled == true then
        partialcritmod.randresult = nil
 	   local modifier = getGlobalParam("dmgOutgoingMultiplier") + (random.random(2,7)/10)
+	   partialcritmod.color = "[colour='FF00FF00']"
        return modifier     		
      end
 	end
-	randresult = nil
+	partialcritmod.randresult = nil
 	local modifier = getGlobalParam("dmgOutgoingMultiplier")
+	partialcritmod.color = "[colour='FFFFFFFF']"
 	return modifier
 
 end
--- not done yet
+
 function partialcritmod:npcshot(item)
-settingdefaults()
-	log(partialcritmod)
+	settingdefaults()
 	local minhit = 0
 	local maxhit = 0
 	if item then
@@ -190,11 +173,19 @@ settingdefaults()
 	 maxhit = 0
 	end
 	if partialcritmod.modenabled == true then
-	
-	
-	
-	
-	
+	if partialcritmod.randresult <= (partialcritmod.basevalue - partialcritmod.randmin - minhit) and partialcritmod.partialenabled == true then
+		partialcritmod.randresult = nil
+		local modifier = getGlobalParam("dmgOutgoingMultiplier") - (random.random(2,5)/10)
+		return modifier     		
+     end
+	 if partialcritmod.randresult >= (partialcritmod.randbase - partialcritmod.basevalue + partialcritmod.randmin + maxhit) and partialcritmod.critenabled == true then
+        partialcritmod.randresult = nil
+        local modifier = getGlobalParam("dmgOutgoingMultiplier") - (random.random(2,5)/10)
+		return modifier     		
+     end
+	 partialcritmod.randresult = nil
+	 local modifier = getGlobalParam("dmgOutgoingMultiplier")
+	 return modifier
 	end
 
 end
@@ -217,30 +208,6 @@ function settingdefaults()
    end
    partialcritmod.randresult = random.random(0 + difficulty[partialcritmod.diffvalue].MaxChance, partialcritmod.randbase - difficulty[partialcritmod.diffvalue].MinChance)
 end
-
-
---[[function partialcritmod:hittype( target , item)
-
-   
-   if target == "npc" then
-     
-     else
-     if randresult <= (partialcritmod.basevalue - randmin) then
-        local hittype = "partial"
-		randresult = nil
-        return hittype     		
-     end
-	 if randresult >= (randbase - partialcritmod.basevalue + randmin) then
-        local hittype = "crit"
-		randresult = nil
-        return hittype     		
-     end
-	 local hittype = "normal"
-	 randresult = nil
-	 return hittype
-     end	 
-end
-]]--
 
 return partialcritmod
 

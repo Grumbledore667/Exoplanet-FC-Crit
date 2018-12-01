@@ -1,0 +1,38 @@
+-- Persistent Data
+local multiRefObjects = {
+
+} -- multiRefObjects
+local obj1 = {
+	["name"] = "Grumbledores Template";
+	["options"] = {
+		[1] = {
+			["defaultvalue"] = true;
+			["element"] = "checkbox";
+			["label"] = "Checkbox Example";
+		};
+		[2] = {
+			["defaultvalue"] = "Option 1";
+			["descriptions"] = {
+				[1] = "Option 1";
+				[2] = "Option 2";
+				[3] = "Option 3";
+				[4] = "Option 4";
+			};
+			["element"] = "radio";
+			["groupid"] = "666";
+			["label"] = "Radio Button Example";
+		};
+		[3] = {
+			["defaultvalue"] = "Option 2";
+			["descriptions"] = {
+				[1] = "Option 1";
+				[2] = "Option 2";
+				[3] = "Option 3";
+				[4] = "Option 4";
+			};
+			["element"] = "combobox";
+			["label"] = "ComboBox Example";
+		};
+	};
+}
+return obj1
