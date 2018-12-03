@@ -2,7 +2,6 @@ package.path = package.path .. ';./gdata/scripts/modules/?.lua;./gdata/scripts/m
 package.cpath = package.cpath .. ';./gdata/scripts/modules/?.dll'
 
 dofile("./gdata/scripts/modules/ui/menu/menuUtils.lua")
-local stringx = require "pl.stringx"
 local Backers = require "support"
 local console = require "ui.console"
 local options = require "ui.menu.options"
@@ -14,8 +13,7 @@ local keys    = require "global.keys"
 local gameOptions = require "global.gameOptions"
 local stringio = require "pl.stringio"
 local i18n = require "i18n"
-local f = require "fun"
-local partial = f.partial
+
 _G.clear      = deb.clear
 _G.log        = deb.log
 _G.versionStr = deb.versionStr
@@ -144,12 +142,6 @@ function OnInit()
    wndCredits:getChild("Version"):setProperty("Text", versionStr)
    GUIUtils.widgetSubscribeEventProtected(wndCredits, "KeyDown", cbCreditsKeyDown)
    
-
-   GUIUtils.widgetSubscribeEventProtected(wndCredits, "KeyDown", cbModOptionsKeyDown)
-   
-
-   
-   
    options:init()
    options.backMenu = wndMainMenu
    
@@ -157,8 +149,8 @@ function OnInit()
    loadmodoptions:init()
    loadmodoptions.backMenu = wndMainMenu
    loadmodoptions:createmenubutton()
-     
    --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+
    console:init()
    wndMainMenu:addChild(console:getWnd())
    console:getWnd():hide()
