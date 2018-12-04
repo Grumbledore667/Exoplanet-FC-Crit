@@ -379,7 +379,9 @@ function CCharacter:OnHit(params)
    if isPlayerAttacker then
       --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
 	  damageValue = damageValue * CritPartialMod:playershot(itemName)
-	  gameplayUI:showInfoTextEx(CritPartialMod.color .. tostring(round(damageValue, 0)), "hit", "")
+      if CritPartialMod.color ~= "[colour='FFFFFFFF']" then
+         gameplayUI:showInfoTextEx(CritPartialMod.color .. tostring(round(damageValue, 0)), "hit", "")
+      end
 	  --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    elseif params.target == getPlayer() then
 	  --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++	

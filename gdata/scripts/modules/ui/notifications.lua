@@ -1,8 +1,5 @@
 local oo = require "loop.simple"
 
-local f = require "fun"
-local partial = f.partial
-
 local GUIUtils = require "ui.utils"
 
 local wndMgr
@@ -129,12 +126,9 @@ function CNotificationsUI:showInfo(importance)
    elseif importance == "major" then
       wnd:setYPosition(CEGUI.UDim(0.15, id * (notificationHeight + NOTIFICATION_SPACING)))
    elseif importance == "hit" then
-      --wnd:setWidth( CEGUI.UDim(0.0,50) )
-      --wnd:setYPosition( CEGUI.UDim(0.35,0) )
+
 	  wnd:setYPosition(CEGUI.UDim(0.35, id * (notificationHeight + NOTIFICATION_SPACING)))
-      --xposi = 0.5 + (random.random(2,5)/100)
-	  --wnd:setXPosition( CEGUI.UDim(xposi) )
-	  
+
    end
 
    wndTable.NotificationShow:start()
