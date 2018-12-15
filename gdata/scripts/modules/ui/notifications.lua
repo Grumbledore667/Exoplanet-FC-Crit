@@ -121,15 +121,20 @@ function CNotificationsUI:showInfo(importance)
    table.insert(info.wnds.occupied, wndTable)
    local id = #info.wnds.occupied - 1
    wnd:setID(id)
-   if importance == "minor" then
-      wnd:setYPosition(CEGUI.UDim(0.7, id * (notificationHeight + NOTIFICATION_SPACING)))
-   elseif importance == "major" then
-      wnd:setYPosition(CEGUI.UDim(0.15, id * (notificationHeight + NOTIFICATION_SPACING)))
-   elseif importance == "hit" then
+    if importance == "minor" then
+        wnd:setYPosition(CEGUI.UDim(0.7, id * (notificationHeight + NOTIFICATION_SPACING)))
+    elseif importance == "major" then
+        wnd:setYPosition(CEGUI.UDim(0.15, id * (notificationHeight + NOTIFICATION_SPACING)))
+    elseif importance == "hit" then
+        if getPlayer():getCameraOffset() ~= 53 then
+            wnd:setYPosition(CEGUI.UDim(0.35, id * (notificationHeight + NOTIFICATION_SPACING)))
+            wnd:setXPosition(CEGUI.UDim(0.25, 0))
+        else
+            wnd:setYPosition(CEGUI.UDim(0.35, id * (notificationHeight + NOTIFICATION_SPACING)))
+            wnd:setXPosition(CEGUI.UDim(-0.2, 0))
+        end
+    end
 
-	  wnd:setYPosition(CEGUI.UDim(0.35, id * (notificationHeight + NOTIFICATION_SPACING)))
-
-   end
 
    wndTable.NotificationShow:start()
 

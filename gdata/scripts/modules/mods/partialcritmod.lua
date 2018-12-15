@@ -142,14 +142,14 @@ function partialcritmod:playershot(item)
         if partialcritmod.randresult <= (partialcritmod.basevalue + partialcritmod.randmin + minhit) and partialcritmod.partialenabled == true then
             partialcritmod.randresult = nil
             local modifier = getGlobalParam("dmgOutgoingMultiplier") - (random.random(2,5)/10)
-            partialcritmod.color = "[colour='FFFF0000']"
+            partialcritmod.color = stringx.split(loadmodoptions:retrieveValue("grumbleshitmod.lua", "PartialHit Color"), "]")[1] .. "]"
             return modifier
         end
         --crit hit
         if partialcritmod.randresult >= (partialcritmod.randbase - partialcritmod.basevalue - partialcritmod.randmin - maxhit) and partialcritmod.critenabled == true then
             partialcritmod.randresult = nil
             local modifier = getGlobalParam("dmgOutgoingMultiplier") + (random.random(2,7)/10)
-            partialcritmod.color = "[colour='FF00FF00']"
+            partialcritmod.color = stringx.split(loadmodoptions:retrieveValue("grumbleshitmod.lua", "CritHit Color"), "]")[1] .. "]"
             return modifier
         end
     end
