@@ -208,11 +208,11 @@ function partialcritmod:playershot(item, bullets)
         maxhit = MinMaxChance[item].MaxHitChance
         hits = MinMaxChance[item].hits
     end
+    local weaponbonus = (hits/10*bullets)/100
     if partialcritmod.modenabled == true then
         --partial hit
         if partialcritmod.randresult <= (partialcritmod.basevalue + partialcritmod.randmin + minhit) and partialcritmod.partialenabled == true then
             partialcritmod.randresult = nil
-            local weaponbonus = (hits/10*bullets)/100
             local modifier = getGlobalParam("dmgOutgoingMultiplier") - (random.random(2,5)/10) + weaponbonus
             partialcritmod.color = stringx.split(loadmodoptions:retrieveValue("grumbleshitmod.lua", "PartialHit Color"), "]")[1] .. "]"
             return modifier
@@ -220,14 +220,13 @@ function partialcritmod:playershot(item, bullets)
         --crit hit
         if partialcritmod.randresult >= (partialcritmod.randbase - partialcritmod.basevalue - partialcritmod.randmin - maxhit) and partialcritmod.critenabled == true then
             partialcritmod.randresult = nil
-            local weaponbonus = (hits/10*bullets)/100
             local modifier = getGlobalParam("dmgOutgoingMultiplier") + (random.random(2,7)/10) + weaponbonus
             partialcritmod.color = stringx.split(loadmodoptions:retrieveValue("grumbleshitmod.lua", "CritHit Color"), "]")[1] .. "]"
             return modifier
         end
     end
     partialcritmod.randresult = nil
-    local modifier = getGlobalParam("dmgOutgoingMultiplier")
+    local modifier = getGlobalParam("dmgOutgoingMultiplier") + weaponbonus
     partialcritmod.color = "[colour='FFFFFFFF']"
     return modifier
 
