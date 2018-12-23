@@ -359,11 +359,12 @@ function CCharacter:OnHit(params)
    -- target - target object (character, rigid)
    -- targetType - target type (string) (character, rigid)
    -- interrupt - boolean, defaults to false. if set to true - stops hit event propagation
-   
+
    local charAttacker, itemName, damageValue
    charAttacker = params.impactor:getObject()
    itemName = params.impactor:getItemName()
    damageValue = params.impactor:getDamage()
+
    local isPlayerAttacker = getPlayer() == charAttacker
 
    --TODO:FIXME: A projectile from a destroyed attacker won't hit and it probably should
@@ -377,16 +378,17 @@ function CCharacter:OnHit(params)
    -- logic, damage increase and reduction etc
    damageValue = damageValue * getGlobalParam("dmgMultiplier")
    if isPlayerAttacker then
-      --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-	  damageValue = damageValue * CritPartialMod:playershot(itemName)
-      if CritPartialMod.color ~= "[colour='FFFFFFFF']" then
-         gameplayUI:showInfoTextEx(CritPartialMod.color .. tostring(round(damageValue, 0)), "hit", "")
-      end
-	  --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+       --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+       damageValue = damageValue * CritPartialMod:playershot(itemName)
+       if CritPartialMod.color ~= "[colour='FFFFFFFF']" then
+           CritPartialMod.impactPos = projectPointToScreen(params.impactPos)
+           gameplayUI:showInfoTextEx(CritPartialMod.color .. tostring(round(damageValue, 0)), "hit", "")
+       end
+       --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    elseif params.target == getPlayer() then
-	  --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++	
-      damageValue = damageValue * CritPartialMod:npcshot(itemName)
-	  --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+       --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+       damageValue = damageValue * CritPartialMod:npcshot(itemName)
+       --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    end
 
    if self:getStatusEffectsManager():hasEffectName("scampShock") and itemName == "beacon_light.wpn" then

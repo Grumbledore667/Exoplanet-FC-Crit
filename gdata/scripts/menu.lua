@@ -1,16 +1,14 @@
-package.path = package.path .. ';./gdata/scripts/modules/?.lua;./gdata/scripts/modules/?/init.lua'
-package.cpath = package.cpath .. ';./gdata/scripts/modules/?.dll'
-
 dofile("./gdata/scripts/modules/ui/menu/menuUtils.lua")
+
 local Backers = require "support"
 local console = require "ui.console"
 local options = require "ui.menu.options"
---+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-local loadmodoptions = require "mods.modoptions"
---+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
 local deb     = require "global.debug"
 local keys    = require "global.keys"
 local gameOptions = require "global.gameOptions"
+--+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+local loadmodoptions = require "mods.modoptions"
+--+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
 local stringio = require "pl.stringio"
 local i18n = require "i18n"
 
@@ -128,7 +126,7 @@ function OnInit()
    guiContext:setDefaultFont("venus rising rg-10")
 
    deb.initAfterCEGUI()
-   
+
    wndMainMenu = wndMgr:loadLayoutFromFile("main_menu.layout")
    wndMainMenu:getChild("Version"):setProperty("Text", versionStr)
    GUIUtils.widgetSubscribeEventProtected(wndMainMenu, "KeyDown", cbMainMenuKeyDown)
@@ -141,15 +139,9 @@ function OnInit()
    wndCredits = wndMgr:loadLayoutFromFile("credits.layout")
    wndCredits:getChild("Version"):setProperty("Text", versionStr)
    GUIUtils.widgetSubscribeEventProtected(wndCredits, "KeyDown", cbCreditsKeyDown)
-   
+
    options:init()
    options.backMenu = wndMainMenu
-   
-   --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++   
-   loadmodoptions:init()
-   loadmodoptions.backMenu = wndMainMenu
-   loadmodoptions:createmenubutton()
-   --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
 
    console:init()
    wndMainMenu:addChild(console:getWnd())
@@ -168,14 +160,18 @@ function OnInit()
    GUIUtils.widgetSubscribeEventProtected(wndMainMenu:getChild("OptionsButton"), "Clicked", optionsMenu)
    GUIUtils.widgetSubscribeEventProtected(wndMainMenu:getChild("CreditsButton"), "Clicked", showCredits)
    GUIUtils.widgetSubscribeEventProtected(wndMainMenu:getChild("QuitButton"), "Clicked", quitGame)
-   
+
    wndLoadMenu:getChild("SaveButton"):hide()
    wndLoadMenu:getChild("SaveName"):hide()
    wndLoadMenu:getChild("SaveNameBG"):hide()
    GUIUtils.widgetSubscribeEventProtected(wndLoadMenu:getChild("LoadButton"), "Clicked", loadGameState)
    GUIUtils.widgetSubscribeEventProtected(wndLoadMenu:getChild("DeleteButton"), "Clicked", deleteGameState)
    GUIUtils.widgetSubscribeEventProtected(wndLoadMenu:getChild("BackButton"), "Clicked", mainMain)
-   
+    --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+    loadmodoptions:init()
+    loadmodoptions.backMenu = wndMainMenu
+    loadmodoptions:createmenubutton()
+    --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    --CREDITS
    GUIUtils.widgetSubscribeEventProtected(wndCredits:getChild("BackButton"), "Clicked", mainMain)
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<GUILayout version="4" >
+    <Window type="TaharezLook/StaticImage" name="NotificationExample" >
+        <Property name="Area" value="{{0,0},{0,0},{0.15,0},{0.04,0}}" />
+        <Property name="MaxSize" value="{{1,0},{1,0}}" />
+        <Property name="AlwaysOnTop" value="true" />
+        <Property name="FrameEnabled" value="false" />
+        <Property name="ImageColours" value="tl:88618586 tr:88618586 bl:88618586 br:88618586" />
+        <Property name="BackgroundEnabled" value="false" />
+        <Window type="TaharezLook/Label" name="InfoText" >
+            <Property name="Area" value="{{0,0},{0,0},{0.98,0},{0.8,0}}" />
+            <Property name="Font" value="decor-8" />
+            <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            <Property name="VerticalAlignment" value="Centre" />
+            <Property name="HorizontalAlignment" value="Centre" />
+        </Window>
+    </Window>
+</GUILayout>

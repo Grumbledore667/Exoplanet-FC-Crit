@@ -10,7 +10,78 @@ local MinMaxChance =
         MaxHitChance = 2,
 
     },
+    ["abori_axe.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
 
+    },
+    ["axe.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["abori_knife.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["abori_bat.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["cannibal_spoon.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["cleaver.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["family_relic.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["machete.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["pickaxe.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["pipe.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["shovel.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
+    ["wodden_bat.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+
+    },
     ["hand_to_hand.wpn"] =
     {
         MinHitChance = 2,
@@ -124,13 +195,14 @@ local partialcritmod = {
     partialenabled = nil,
     randresult = nil,
     color = "",
+    impactPos = nil,
 }
 
 function partialcritmod:playershot(item)
     settingdefaults()
     local minhit = 0
     local maxhit = 0
-    if item then
+    if item and MinMaxChance[item] then
         minhit = MinMaxChance[item].MinHitChance
         maxhit = MinMaxChance[item].MaxHitChance
     else
@@ -186,6 +258,10 @@ function partialcritmod:npcshot(item)
         local modifier = getGlobalParam("dmgOutgoingMultiplier")
         return modifier
     end
+
+end
+
+function partialcritmod:spawnnoti(pos)
 
 end
 
