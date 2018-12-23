@@ -365,6 +365,7 @@ function CCharacter:OnHit(params)
    itemName = params.impactor:getItemName()
    damageValue = params.impactor:getDamage()
 
+
    local isPlayerAttacker = getPlayer() == charAttacker
 
    --TODO:FIXME: A projectile from a destroyed attacker won't hit and it probably should
@@ -379,7 +380,15 @@ function CCharacter:OnHit(params)
    damageValue = damageValue * getGlobalParam("dmgMultiplier")
    if isPlayerAttacker then
        --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-       damageValue = damageValue * CritPartialMod:playershot(itemName)
+       local bulletsinshot = nil
+       --check if melee or ranged
+       if params.impactor.bulletsInShot == nil then
+           bulletsinshot = 1
+       else
+           bulletsinshot = params.impactor.bulletsInShot
+       end
+       damageValue = damageValue * CritPartialMod:playershot(itemName, bulletsinshot)
+       CritPartialMod:addhit(itemName)
        if CritPartialMod.color ~= "[colour='FFFFFFFF']" then
            CritPartialMod.impactPos = projectPointToScreen(params.impactPos)
            gameplayUI:showInfoTextEx(CritPartialMod.color .. tostring(round(damageValue, 0)), "hit", "")
