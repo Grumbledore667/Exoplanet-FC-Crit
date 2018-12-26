@@ -1,4 +1,3 @@
---Mod Stuff
 local stringx = require "pl.stringx"
 local loadmodoptions = require "mods.modoptions"
 local random = require "random"
