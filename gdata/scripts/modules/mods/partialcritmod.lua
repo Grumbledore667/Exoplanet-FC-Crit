@@ -265,7 +265,6 @@ function partialcritmod:returnhits()
     for k,v in pairs(MinMaxChance) do
         s[k] = v.hits
     end
-    log(s)
     return s
 end
 
