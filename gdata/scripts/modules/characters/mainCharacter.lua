@@ -1,15 +1,11 @@
 local oo = require "loop.simple"
-local CAction = (require "action").CAction
-local CNode = (require "node").CNode
 local ItemsData = (require "itemsData")
 local ItemsInfo = (require "itemsData").ItemsInfo
 local CPlayer = (require "player").CPlayer
 local CCharacter = (require "character").CCharacter
 local SkySystem = (require "environment.sky").SkySystem
 local InstallationData = (require "items.installation").ItemRecipes
---+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-local CritPartialMod  = require "mods.partialcritmod"
---+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+
 local TerminalUI    = require "ui.terminal"
 local ImmersiveUI = require "ui.immersiveUI"
 local GUIUtils      = require "ui.utils"
@@ -92,73 +88,51 @@ end
 function CMainCharacter:initSounds()
    self.sounds = {}
 
-   self.sounds.cough = self:createAspect("main_hero_cough_1.wav")
+   self.sounds.cough = self:createAspect("Play_main_hero_cough")
    self.sounds.cough:getPose():setParent(self:getPose())
    self.sounds.cough:getPose():resetLocalPos()
-   self.sounds.cough:setLoop(true)
    self.sounds.cough:setDelay(2)
    self.sounds.cough:setDistance(1000)
 
-   self.sounds.fry = self:createAspect("fry.wav")
+   self.sounds.fry = self:createAspect("Play_fry")
    self.sounds.fry:getPose():setParent(self:getPose())
    self.sounds.fry:getPose():resetLocalPos()
-   self.sounds.fry:setLoop    (false)
    self.sounds.fry:setDistance(1000)
 
-   self.sounds.death = self:createAspect("game_over.wav")
+   self.sounds.death = self:createAspect("Play_game_over")
    self.sounds.death:getPose():setParent(self:getPose())
    self.sounds.death:getPose():resetLocalPos()
-   self.sounds.death:setLoop    (false)
    self.sounds.death:setDistance(2000)
 
-   self.sounds.jump = self:createAspect("jump_1.wav")
+   self.sounds.jump = self:createAspect("Play_human_male_jump")
    self.sounds.jump:getPose():setParent(self:getPose())
    self.sounds.jump:getPose():resetLocalPos()
-   self.sounds.jump:setLoop    (false)
    self.sounds.jump:setDistance(500)
 
    --TODO:FIXME: adjust jump sounds when we have new files.
-   self.sounds.jump_land_1 = self:createAspect("jump_1.wav")
-   self.sounds.jump_land_1:getPose():setParent(self:getPose())
-   self.sounds.jump_land_1:getPose():resetLocalPos()
-   self.sounds.jump_land_1:setLoop    (false)
-   self.sounds.jump_land_1:setDistance(500)
+   self.sounds.jump_land = self:createAspect("Play_human_male_jump")
+   self.sounds.jump_land:getPose():setParent(self:getPose())
+   self.sounds.jump_land:getPose():resetLocalPos()
+   self.sounds.jump_land:setDistance(500)
 
-   self.sounds.jump_land_2 = self:createAspect("jump_2.wav")
-   self.sounds.jump_land_2:getPose():setParent(self:getPose())
-   self.sounds.jump_land_2:getPose():resetLocalPos()
-   self.sounds.jump_land_2:setLoop    (false)
-   self.sounds.jump_land_2:setDistance(500)
+   self.sounds.impact_axe = self:createAspect("Play_main_hero_flesh_impact_axe")
+   self.sounds.impact_axe:getPose():setParent(self:getPose())
+   self.sounds.impact_axe:getPose():resetLocalPos()
+   self.sounds.impact_axe:setDistance(500)
 
-   self.sounds.impact_axe = {}
-   self.sounds.impact_bullet = {}
-
-   for i=1,5 do
-      local soundName = string.format("main_hero_flesh_impact_axe_%d%s", i, ".wav")
-      hlp.insertSoundToTable(self, soundName, self.sounds.impact_axe, {distance=500, volume=0.05})
-
-      soundName = string.format("main_hero_flesh_impact_bullet_%d%s", i, ".wav")
-      hlp.insertSoundToTable(self, soundName, self.sounds.impact_bullet, {distance=500, volume=0.3})
-   end
-
-   for _, snd in ipairs(self.sounds.impact_axe) do
-      snd:getPose():setParent(self:getPose())
-      snd:getPose():resetLocalPos()
-   end
-
-   for _, snd in ipairs(self.sounds.impact_bullet) do
-      snd:getPose():setParent(self:getPose())
-      snd:getPose():resetLocalPos()
-   end
+   self.sounds.impact_bullet = self:createAspect("Play_main_hero_flesh_impact_bullet")
+   self.sounds.impact_bullet:getPose():setParent(self:getPose())
+   self.sounds.impact_bullet:getPose():resetLocalPos()
+   self.sounds.impact_bullet:setDistance(500)
 end
 
 function CMainCharacter:OnHit(params)
    CPlayer.OnHit(self, params)
    local snd
    if params.impactType == "melee" and params.impactor:getAnimations() ~= "boxing" then
-      snd = random.choice(self.sounds.impact_axe)
+      snd = self.sounds.impact_axe
    elseif params.impactType == "ranged" then
-      snd = random.choice(self.sounds.impact_bullet)
+      snd = self.sounds.impact_bullet
    end
    if snd then
       snd:play()
@@ -192,7 +166,7 @@ function CMainCharacter:loadParameters()
 
       --MISC
       staminaRunCost = {baseValue = -1.25},
-      staminaStepMoveCost = {baseValue = -20},
+      staminaSideStepCost = {baseValue = -20},
       staminaJumpCost = {baseValue = -5},
       staminaMeleeAttackCost = {baseValue = -5},
       staminaRangeAttackCost = {baseValue = -1},
@@ -212,7 +186,7 @@ function CMainCharacter:loadParameters()
 end
 
 function CMainCharacter:wearHair()
-   self:setupAccessories({{bone="head_slot", name="hair_jack.sbg"}})
+   self:addAttachments({{bone="head_slot", name="hair_jack.sbg"}})
 end
 
 function CMainCharacter:OnCreate()
@@ -243,6 +217,8 @@ function CMainCharacter:OnCreate()
    self.setupInProgress = false
 
    runTimer(1.0 / 10, self, self.updateFocus, true)
+   self.aiTree = "ai.trees.mainCharacter"
+   self:createTree(self.aiTree)
 end
 
 function CMainCharacter:updateFocus()
@@ -361,7 +337,7 @@ function CMainCharacter:obtainCheatInventory(forcedCount)
                count = 10000
             elseif category == "ammo" then
                count = 300
-            elseif category == "tech" or category == "food" or category == "drink" or category == "smokable" or category == "meds" or category == "misc" then
+            elseif ItemsData.isItemStackable(itemName) and category ~= "quest" then
                count = 10
             end
          else
@@ -419,8 +395,9 @@ function CMainCharacter:onSleepStop()
    self:setState("sleeping", false)
    self:setStatCount("health", self:getStatMax("health"))
    if self:getState("sleepAtBed") then
-      if self.bedObject then
-         self.bedObject:deactivate(self)
+      local bedObject = self:getBBVar("bedObject")
+      if bedObject then
+         bedObject:deactivate(self)
       end
       gameplayUI.billboardUI:setup("Sleeping", string.format("Press '%s' to get up", getButtonCurrentKeyName("ACTIVATE")))
    else
@@ -537,36 +514,27 @@ function CMainCharacter:OnLanding(landingSpeed)
       self.fallTimer:stop()
       self.fallTimer = nil
    end
-   self.deltaLandingSpeed = (-landingSpeed) - self.parameters.maxLandingSpeed
-   runTimer(0.05, nil, function()
+   self:setState("inAir", false)
+   self:setState("falling", false)
+   self:setState("jumping", false)
+   self:setState("disableAirPickup", false)
+   self:tryCancelActions(false)
+
+   runTimerAdv(0.05, false, function()
       if not self:getState("swimming") then
-         if random.random() * 2 < 1 then
-            self.sounds.jump_land_1:play()
-         else
-            self.sounds.jump_land_2:play()
-         end
-         if self.deltaLandingSpeed > 0 then
-            local damage = scaleValue(self:getStatCount("healthMax"), self.deltaLandingSpeed, self.parameters.maxLandingSpeed)
-            local boots = self:getInventory():getSlotItem("boots")
-            if boots and boots.fallDamageBlockMul and self:getStatCount("energy") >= boots.fallEnergyCost then
-               damage = damage * boots.fallDamageBlockMul
-               self:changeStatCount("energy", -boots.fallEnergyCost)
-            end
-            self:hit(damage, nil)
-         end
+         local deltaLandingSpeed = (-landingSpeed) - self.parameters.maxLandingSpeed
+         self.sounds.jump_land:play()
 
          self:setState("blockItemUse", false)
          self:setState("disableInteraction", false)
          self:setState("disableJump", false)
-         self:animatedEvent("land")
-      end
 
-      self:setState     ("inAir", false)
-      self:setState     ("falling", false)
-      self:setState     ("jumping", false)
-      self:setState     ("disableAirPickup", false)
-      self:tryCancelActions(false)
-   end, false)
+         if deltaLandingSpeed > 0 then
+            self:setBBVar("deltaLandingSpeed", deltaLandingSpeed)
+            self:setState("landing", true)
+         end
+      end
+   end)
 end
 
 function CMainCharacter:OnSlideBegin()
@@ -632,11 +600,12 @@ function CMainCharacter:OnControlDown(code)
 
    elseif code == getButtonCode("ACTIVATE") then
       if self:canInteract() then
-         if self:getState("sleepAtBed") and self.bedObject then
-            self.bedObject:deactivate(self)
+         local bedObject = self:getBBVar("bedObject")
+         if self:getState("sleepAtBed") and bedObject then
+            bedObject:deactivate(self)
          elseif self:getState("resting") and self.campObject and not gameplayUI.waitingUI:isWaitingMode() then
             self.campObject:deactivate(self)
-         elseif self:getState("gathering") and not self:getState("waitGatherFinish") then
+         elseif self:getState("gathering") then
             self:forceStopGathering(false)
          elseif self.exchangeTarget and not self:getState("trading") then
             self:interactObject("deactivate", self.exchangeTarget, nil)
@@ -659,6 +628,15 @@ function CMainCharacter:OnControlDown(code)
    elseif code == getButtonCode("PREVIOUS") then
       ImmersiveUI.triggerUI("weapon")
       self:prevWeapon()
+   elseif getButtonDoubleTap("BACK") and currentWeapon and not self:getState("inAir") and self:canMove() then
+      self:setBBVar("sideStepDir", "back")
+      self:requestBehaviorStart("side_step")
+   elseif getButtonDoubleTap("LEFT") and currentWeapon and not self:getState("inAir") and self:canMove() then
+      self:setBBVar("sideStepDir", "left")
+      self:requestBehaviorStart("side_step")
+   elseif getButtonDoubleTap("RIGHT") and currentWeapon and not self:getState("inAir") and self:canMove() then
+      self:setBBVar("sideStepDir", "right")
+      self:requestBehaviorStart("side_step")
 
    elseif code == getButtonCode("HOTBAR1") then
       self:OnHotbarItemClick(1)
@@ -826,72 +804,7 @@ function CMainCharacter:getTargetInventory()
    return nil
 end
 
-function CMainCharacter:addActions()
-   local move = CAction{}
-   move:allowRestartOnEvent("onChangeButtonState")
-   move:allowRestartOnEvent("onChangeState")
-   move.start = self.move_start
-   move.stop  = self.move_stop
-   move.name  = "move"
-
-   local jump = CAction{}
-   jump.start = self.jump
-   jump.name  = "jump"
-
-   local attack = CAction{}
-   attack.start = self.attack
-   attack.name  = "attack"
-
-   local rest = CAction{}
-   --rest:allowRestartOnEvent("onChangeState")
-   rest.start = self.rest_running
-   rest.stop  = self.rest_finish
-   rest.name  = "rest"
-
-   local cook = CAction{}
-   --cook:allowRestartOnEvent("onChangeState")
-   cook.start = self.cook_running
-   cook.stop  = self.cook_finish
-   cook.name  = "cook"
-
-   local interact = CAction{}
-   interact:allowRestartOnEvent("onChangeState")
-   interact.start = self.interact_start
-   --interact.stop  = self.interact_stop
-   interact.name  = "interact"
-
-   local climb_ladder = CAction{}
-   climb_ladder.start = self.climb_ladder_running
-   climb_ladder.stop  = self.climb_ladder_finish
-   climb_ladder.name  = "climb_ladder"
-
-   local climb_ladder_down = CAction{}
-   climb_ladder_down.start = self.climb_ladder_running
-   climb_ladder_down.stop  = self.climb_ladder_finish
-   climb_ladder_down.name  = "climb_ladder_down"
-
-   local root = CNode{}
-   root:yes (self.climb_ladder_down_):no  (self.climb_ladder_):no  (self.interact_):no  (self.rest_):no  (self.jump_):no   (self.attack_):yes  (attack)
-   root:yes (self.climb_ladder_down_):no  (self.climb_ladder_):no  (self.interact_):no  (self.rest_):no  (self.jump_):yes  (jump)
-   root:yes (self.climb_ladder_down_):no  (self.climb_ladder_):no  (self.interact_):no  (self.rest_):no  (self.move_):yes  (move)
-   root:yes (self.climb_ladder_down_):no  (self.climb_ladder_):no  (self.interact_):no  (self.rest_):yes (self.cook_):no   (rest)
-   root:yes (self.climb_ladder_down_):no  (self.climb_ladder_):no  (self.interact_):no  (self.rest_):yes (self.cook_):yes  (cook)
-   root:yes (self.climb_ladder_down_):no  (self.climb_ladder_):no  (self.interact_):yes (interact)
-   root:yes (self.climb_ladder_down_):no  (self.climb_ladder_):yes (climb_ladder)
-   root:yes (self.climb_ladder_down_):yes (self.climb_ladder_):no  (climb_ladder_down)
-
-   self.actionsScheduler.root = root
-   self.notificationCenter:postNotification("onActionsSchedulerRootUpdate")
-end
-
--- action methods and predecates
-function CMainCharacter:climb_ladder_()
-   return self:getState("climbing_ladder")
-end
-function CMainCharacter:climb_ladder_down_()
-   return self:getState("climbing_ladder_down")
-end
-
+-- action methods
 
 function CMainCharacter:climbLadder(ladderObj)
    if ladderObj then
@@ -908,88 +821,89 @@ function CMainCharacter:climbLadder(ladderObj)
 end
 
 function CMainCharacter:climb_ladder_running()
-   local anchorBot = self.ladderObj:getMeshByName("anchor_bot"):getPose():getPos()
-   local anchorMid = self.ladderObj:getMeshByName("anchor_mid"):getPose():getPos()
-   local anchorTopF = self.ladderObj:getMeshByName("anchor_top_f"):getPose():getPos()
-   local anchorTopB = self.ladderObj:getMeshByName("anchor_top_b"):getPose():getPos()
-   self.ladderCoro = runTimerCo(function()
-      local anims
-      local targetPos
-      local dir = vec3RotateQuat({x=0,y=0,z=1}, self.ladderObj:getPose():getRotQuat())
+   local ladderPose = self.ladderObj:getPose()
+   local dir = vec3RotateQuat({x=0,y=0,z=1}, ladderPose:getRotQuat())
 
-      --OFFSET TO THE FIRST ANCHOR
-      if self:getState("climbing_ladder") then
-         anims = self.animations.ladder.up
-         targetPos = anchorBot
-      elseif self:getState("climbing_ladder_down") then
-         anims = self.animations.ladder.down
-         targetPos = anchorTopB
-      end
+   self:setHeadLookingAllowed(false)
+   self:holsterWeapon()
+   self:setOrientationSpeed(0)
+   self:setDisableActionStates(true)
+   self:setCollisionObjects(false)
 
-      self:setHeadLookingAllowed(false)
-      self:holsterWeapon()
-      self:setOrientationSpeed(0)
-      self:setDisableActionStates(true)
+   --Wait for character movement to stop
+   coro.wait(0.2)
 
-      self:moveAndOrientate(targetPos, dir, 0.1)
+   if self:getState("climbing_ladder") then
+      local anchors = self.ladderObj:getAnchors(self, "bottom")
+      local speed = 140
+      local anims = self.animations.ladder.up
 
-      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+      --Move to the ladder
+      self:moveAndOrientate(anchors[1], dir, 0.2)
+      --coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
 
-      --Adjust player before vertical movement
-      local delay
-      if self:getState("climbing_ladder_down") then
-         delay = self:getAnimDuration(anims.to) / 1.5 --Delay so the player won't drop down immediately
-         self:moveAndOrientate(anchorTopF, dir, delay)
-      end
-
-      self.animationsManager:playCycle(anims.loop)
       self.animationsManager:playAction(anims.to)
+      coro.waitAnimationEventIn(self, anims.to, "end")
 
-      if delay then
-         coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
-      else
-         coro.waitAnimationEnd(self, anims.to)
-      end
-
-      --Player is in position for looping
-      local finishDelay
-      if self:getState("climbing_ladder") then
-         local speed = 140
-         targetPos = anchorMid
-         finishDelay = getDistance(anchorBot, anchorMid) / speed
-      elseif self:getState("climbing_ladder_down") then
-         local speed = 600
-         targetPos = anchorBot
-         finishDelay = getDistance(anchorTopF, anchorBot) / speed
-      end
-
-      self:moveAndOrientate(targetPos, dir, finishDelay)
+      --Loop going UP
       self.animationsManager:playCycle(anims.loop, 0)
-
+      self:moveAndOrientate(anchors[2], dir, getDistance(anchors[1], anchors[2]) / speed)
       coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
 
       self.animationsManager:playCycle(random.choice(self.animations.idle.default))
       self.animationsManager:playAction(anims.out)
 
-      --Move player up, then forward to avoid forcing him through the ledge (to which ladder's attached)
-      if self:getState("climbing_ladder") then
-         self:moveAndOrientate(anchorTopF, dir, 0.5)
+      --Climb up
+      self:moveAndOrientate(anchors[3], dir, 1)
+      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
 
-         coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+      self:setCollisionObjects(true) --Turning it on before another moveAndOrientate solves sinking into collider
 
-         self:moveAndOrientate(anchorTopB, dir, 0.26)
-      end
+      --Move forward a little bit, also works as workaround for sinking
+      self:moveAndOrientate(anchors[4], dir, 0.2)
+      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
 
-      coro.waitAnimationEnd(self, anims.out)
+   elseif self:getState("climbing_ladder_down") then
+      local anchors = self.ladderObj:getAnchors(self, "top")
+      local speed = 600
+      local anims = self.animations.ladder.down
 
-      self:setState("climbing_ladder", false)
-      self:setState("climbing_ladder_down", false)
-   end)
+      --Move to the ladder
+      self:moveAndOrientate(anchors[1], dir, 0.2)
+      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+
+      --Start animation
+      self.animationsManager:playCycle(anims.loop)
+      self.animationsManager:playAction(anims.to)
+
+      --Drop down on the ladder
+      self:moveAndOrientate(anchors[2], dir, self:getAnimDuration(anims.to))
+      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+
+      --Loop going DOWN
+      self:moveAndOrientate(anchors[3], dir, getDistance(anchors[2], anchors[3]) / speed)
+      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+
+      --Get off the ladder
+      self.animationsManager:playAction(anims.out, 0, 0)
+      self.animationsManager:playCycle(random.choice(self.animations.idle.default), 0)
+
+      self:setCollisionObjects(true) --Turning it on before another moveAndOrientate solves sinking into collider
+
+      --TODO:FIXME:Workaround for sinking
+      self:moveAndOrientate(anchors[4], dir, 0.1)
+      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+   end
+
+   self:setState("climbing_ladder", false)
+   self:setState("climbing_ladder_down", false)
 end
 
 function CMainCharacter:climb_ladder_finish()
+   self:stopMoveAndOrientate()
    self:setDisableActionStates(false)
    self:setHeadLookingAllowed(true)
+   self:setCollisionObjects(true)
    self.ladderObj = nil
 end
 
@@ -1009,71 +923,68 @@ function CMainCharacter:leaveCamp(obj)
    return true
 end
 
-function CMainCharacter:rest_()
-   return self:getState("resting")
-end
-
 function CMainCharacter:rest_running()
-   self.restCoro = runTimerCo(function()
-      self:setHeadLookingAllowed(false)
-      self:holsterWeapon()
-      self:setOrientationSpeed(0)
-      self:setDisableActionStates(true)
+   self:setHeadLookingAllowed(false)
+   self:holsterWeapon()
+   self:setOrientationSpeed(0)
+   self:setDisableActionStates(true)
+   self:updateCamera()
 
-      coro.wait(0.2) --Wait for the player movement to stop
+   if self.campObject then
+      local offset = vec3Add(vec3Mul(vec3Normalize(vec3Sub(self:getPose():getPos(), self.campObject:getPose():getPos())), 120), self.campObject:getPose():getPos())
+      offset.y = offset.y + 10
+      self:moveAndOrientate(offset, vec3Normalize(vec3Sub(self.campObject:getPose():getPos(), self:getPose():getPos())), 0.1)
+      coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+   end
 
-      if self.campObject then
-         local offset = vec3Add(vec3Mul(vec3Normalize(vec3Sub(self:getPose():getPos(), self.campObject:getPose():getPos())), 120), self.campObject:getPose():getPos())
-         offset.y = offset.y + 10
-         self:moveAndOrientate(offset, vec3Normalize(vec3Sub(self.campObject:getPose():getPos(), self:getPose():getPos())), 0.5)
-      end
+   gameplayUI.restHintUI:show(true)
 
-      self:setCameraHeight(70, 1.0)
-      self:setCameraDist(100, 1.5)
-      self:setCameraFov(getDefaultPlayerCameraFov(), 0.5)
+   --Means we have to sit down and not just transfer from these sub states
+   if not self:getState("finished_cooking") and not self:getState("finished_drinking") and not self:getState("finished_eating") then
+      self.animationsManager:playAction(self.animations.idle.to.sitbyfire)
 
-      gameplayUI.restHintUI:show(true)
+      coro.wait(1) --Pause to let 'to' anim almost finish
 
-      --Means we have to sit down and not just transfer from these sub states
-      if not self:getState("finished_cooking") and not self:getState("finished_drinking") and not self:getState("finished_eating") then
-         self.animationsManager:playAction(self.animations.idle.to.sitbyfire)
-
-         coro.wait(1) --Pause to let 'to' anim almost finish
-
-         self.statusEffectsManager:addStatusEffect({name = "restBuff"})
-      else
-         self:setState("finished_cooking", false)
-         self:setState("finished_drinking", false)
-         self:setState("finished_eating", false)
-      end
-      self.animationsManager:playCycle(self.animations.sitbyfire.default, 0)
-      self:setState("blockItemUse", false)
-      self:setState("disableInteraction", false)
-      self.restCoro = nil
-   end)
-end
-
-function CMainCharacter:rest_finish()
-   runTimerCo(function()
-      gameplayUI.restHintUI:show(false)
-      gameplayUI.waitingUI:show(false)
-
+      self.statusEffectsManager:addStatusEffect({name = "restBuff"})
+   else
       self:setState("finished_cooking", false)
       self:setState("finished_drinking", false)
       self:setState("finished_eating", false)
+   end
+   self.animationsManager:playCycle(self.animations.sitbyfire.default, 0)
+   self:setState("blockItemUse", false)
+   self:setState("disableInteraction", false)
+end
 
-      --Means we have to get up and not just transfer to these sub states
-      if not self:getState("cooking") and not self:getState("eating") and not self:getState("drinking") then
-         self.animationsManager:playAction(self.animations.sitbyfire.to.idle)
-         self:setState("disableInteraction", true)
+function CMainCharacter:rest_finish()
+   self:setState("getting up", true)
+   self:updateCamera()
+end
 
-         coro.waitAnimationEnd(self, self.animations.sitbyfire.to.idle)
+function CMainCharacter:get_up_running()
+   gameplayUI.restHintUI:show(false)
+   gameplayUI.waitingUI:show(false)
 
-         self:setDisableActionStates(false)
-         self:setHeadLookingAllowed(true)
-         self.statusEffectsManager:destroyEffectsByName("restBuff")
-      end
-   end)
+   self:setState("finished_cooking", false)
+   self:setState("finished_drinking", false)
+   self:setState("finished_eating", false)
+
+   --Means we have to get up and not just transfer to these sub states
+   if not self:getState("cooking") and not self:getState("eating") and not self:getState("drinking") then
+      self.animationsManager:playCycle("idle")
+      self.animationsManager:playAction(self.animations.sitbyfire.to.idle)
+      self:setState("disableInteraction", true)
+
+      coro.waitAnimationEnd(self, self.animations.sitbyfire.to.idle)
+
+      self:setDisableActionStates(false)
+      self:setHeadLookingAllowed(true)
+      self.statusEffectsManager:destroyEffectsByName("restBuff")
+   end
+end
+
+function CMainCharacter:get_up_finish()
+   self:setState("getting up", false)
 end
 
 function CMainCharacter:forceStopResting()
@@ -1096,65 +1007,66 @@ function CMainCharacter:forceStopResting()
    end, false)
 end
 
---Isn't initiated in the old AI system.
 function CMainCharacter:restAtBed(obj)
    getScene():tryAutoSave()
-   self.bedObject = obj
+   self:setBBVar("bedObject", obj)
    self:setState("sleepAtBed", true)
-   self:restAtBed_running()
    return true
 end
 
 function CMainCharacter:leaveBed(obj)
    if gameplayUI.waitingUI:isWaitingMode() then return false end
    self:setState("sleepAtBed", false)
-   self:restAtBed_finish()
-   self.bedObject = nil
+   self:setState("leavingBed", true)
    return true
 end
 
 function CMainCharacter:restAtBed_running()
-   runTimerCo(function()
-      self:setHeadLookingAllowed(false)
-      self:holsterWeapon()
-      self:setOrientationSpeed(0)
-      self:setDisableActionStates(true)
-      self:setCollision(false)
+   self:setHeadLookingAllowed(false)
+   self:holsterWeapon()
+   self:setOrientationSpeed(0)
+   self:setDisableActionStates(true)
+   local bedObject = self:getBBVar("bedObject")
 
-      coro.wait(0.2) --Wait for the player movement to stop
+   coro.wait(0.2) --Wait for the player movement to stop
 
-      local offset = localPointToWorld({x=0,y=0,z=-80}, self.bedObject:getPose())
-      offset.y = self:getPose():getPos().y
-      local dir = vec3RotateQuat({x=0,y=0,z=-1}, self.bedObject:getPose():getRotQuat())
-      self:moveAndOrientate(offset, dir, 0.5)
+   bedObject:setCollisionCharacters(false, false)
+   local offset = localPointToWorld({x=0,y=0,z=-80}, bedObject:getPose())
+   offset.y = self:getPose():getPos().y
+   local dir = vec3RotateQuat({x=0,y=0,z=-1}, bedObject:getPose():getRotQuat())
+   self:moveAndOrientate(offset, dir, 0.5)
 
-      self.animationsManager:playCycle(self.animations.sleepAtBed.loop)
-      self.animationsManager:playAction(self.animations.sleepAtBed.to)
+   self.animationsManager:playCycle(self.animations.sleepAtBed.loop)
+   self.animationsManager:playAction(self.animations.sleepAtBed.to)
 
-      coro.wait(1) --Pause to let 'to' anim almost finish
-
-      self:setState("disableInteraction", false)
-      gameplayUI:closeUI()
-      gameplayUI.waitingUI:show(true)
-      gameplayUI.billboardUI:setup("Sleeping", string.format("Press '%s' to get up", getButtonCurrentKeyName("ACTIVATE")))
-   end)
+   coro.wait(1) --Pause to let 'to' anim almost finish
 end
 
 function CMainCharacter:restAtBed_finish()
-   runTimerCo(function()
-      gameplayUI.billboardUI:show(false)
-      gameplayUI.restHintUI:show(false)
-      gameplayUI.waitingUI:show(false)
-      self.animationsManager:playCycle("idle")
-      self.animationsManager:playAction(self.animations.sleepAtBed.out)
-      self:setState("disableInteraction", true)
+   self:setState("disableInteraction", false)
+   gameplayUI:closeUI()
+   gameplayUI.waitingUI:show(true)
+   gameplayUI.billboardUI:setup("Sleeping", string.format("Press '%s' to get up", getButtonCurrentKeyName("ACTIVATE")))
+end
 
-      coro.waitAnimationEnd(self, self.animations.sleepAtBed.out)
+function CMainCharacter:leavingBed_running()
+   gameplayUI.billboardUI:show(false)
+   gameplayUI.restHintUI:show(false)
+   gameplayUI.waitingUI:show(false)
+   self.animationsManager:playCycle("idle")
+   self.animationsManager:playAction(self.animations.sleepAtBed.out)
+   self:setState("disableInteraction", true)
 
-      self:setCollision(true)
-      self:setDisableActionStates(false)
-      self:setHeadLookingAllowed(true)
-   end)
+   coro.waitAnimationEnd(self, self.animations.sleepAtBed.out)
+end
+
+function CMainCharacter:leavingBed_finish()
+   self:setState("leavingBed", false)
+   local bedObject = self:getBBVar("bedObject")
+   bedObject:setCollisionCharacters(true, true)
+   self:setDisableActionStates(false)
+   self:setHeadLookingAllowed(true)
+   self:setBBVar("bedObject", nil)
 end
 
 function CMainCharacter:setDisableActionStates(state)
@@ -1165,52 +1077,45 @@ function CMainCharacter:setDisableActionStates(state)
    self:setState("disableInteraction", state)
 end
 
-function CMainCharacter:cook_()
-   return self:getState("cooking")
-end
-
 function CMainCharacter:cook_running()
    local cookTime = 5
-   self.cookCoro = runTimerCo(function()
-      self:holsterWeapon()
-      self:setState("blockItemUse", true)
-      self:setState("disableInteraction", true)
+   self:holsterWeapon()
+   self:setState("blockItemUse", true)
+   self:setState("disableInteraction", true)
 
-      self.animationsManager:playAction(self.animations.sitbyfire.cook)
+   self.animationsManager:playAction(self.animations.sitbyfire.cook)
 
-      local cookInfo = ItemsData.getItemCookInfo(self.cookItem:getItemName())
-      self.cookingStick = getScene():createEntity("wooden_stick.sbg", "")
-      self.cookingStick:getPose():setParent(self:getBonePose("item_slot" .. self:getWeaponSlot()))
-      self.cookingStick:getPose():resetLocalPose()
+   local cookInfo = ItemsData.getItemCookInfo(self.cookItem:getItemName())
+   self.cookingStick = getScene():createEntity("wooden_stick.sbg", "")
+   self.cookingStick:getPose():setParent(self:getBonePose("item_slot" .. self:getWeaponSlot()))
+   self.cookingStick:getPose():resetLocalPose()
 
-      local foodPos = {x=0,y=20,z=-35}
-      self.cookEntity = getScene():createEntity(cookInfo.model, "")
-      self.cookEntity:getPose():setParent(self.cookingStick:getPose())
-      self.cookEntity:getPose():resetLocalPose()
-      self.cookEntity:getPose():setLocalPos(foodPos)
-      self.cookEntity:setTexture(0, cookInfo.texRaw)
+   local foodPos = {x=0,y=20,z=-35}
+   self.cookEntity = getScene():createEntity(cookInfo.model, "")
+   self.cookEntity:getPose():setParent(self.cookingStick:getPose())
+   self.cookEntity:getPose():resetLocalPose()
+   self.cookEntity:getPose():setLocalPos(foodPos)
+   self.cookEntity:setTexture(0, cookInfo.texRaw)
 
-      self.fx.fry:getPose():setParent(self.cookEntity:getPose())
-      self.fx.fry:getPose():resetLocalPose()
-      self.fx.fry:play()
+   self.fx.fry:getPose():setParent(self.cookEntity:getPose())
+   self.fx.fry:getPose():resetLocalPose()
+   self.fx.fry:play()
 
-      self.sounds.fry:getPose():setParent(self.cookEntity:getPose())
-      self.sounds.fry:getPose():resetLocalPose()
-      self.sounds.fry:play()
-      self.sounds.fry:setVolume(1)
+   self.sounds.fry:getPose():setParent(self.cookEntity:getPose())
+   self.sounds.fry:getPose():resetLocalPose()
+   self.sounds.fry:play()
+   self.sounds.fry:setVolume(1)
 
-      gameplayUI.interactProgressUI:setup("Cooking", cookTime)
+   gameplayUI.interactProgressUI:setup("Cooking", cookTime)
 
-      coro.wait(cookTime/2)
+   coro.wait(cookTime/2)
 
-      self.cookEntity:setTexture(0, cookInfo.texCooked)
-      self.sounds.fry:setVolume(2)
+   self.cookEntity:setTexture(0, cookInfo.texCooked)
+   self.sounds.fry:setVolume(2)
 
-      coro.wait(cookTime/2)
+   coro.wait(cookTime/2)
 
-      self:setState("cooking", false)
-      self.cookCoro = nil
-   end)
+   self:setState("cooking", false)
 end
 
 function CMainCharacter:cook_finish()
@@ -1240,57 +1145,58 @@ end
 
 function CMainCharacter:consumeItem(item)
    self:setState("consuming", true)
-   self.consumingItem = item
-   self:consume_running()
+   self:setBBVar("consumingItem", item)
 end
 
 function CMainCharacter:consume_running()
-   self.consumeCoro = runTimerCo(function()
-      local item = self.consumingItem
-      self:setHeadLookingAllowed(false)
-      self:setDisableActionStates(true)
-      self:holsterWeapon()
+   local item = self:getBBVar("consumingItem")
+   self:setHeadLookingAllowed(false)
+   self:setDisableActionStates(true)
+   self:holsterWeapon()
 
-      local itemName = item:getItemName()
-      local itemModel    = ItemsData.getItemModel(item:getItemName())
-      local consumeModel = ItemsData.getItemConsumeModel(itemName) or itemModel
-      self.consumeEntity = hlp.spawnConsumeEntity(item, self:getBonePose("item_slot" .. self:getWeaponSlot()))
+   local itemName = item:getItemName()
+   local itemModel = ItemsData.getItemModel(item:getItemName())
+   local consumeModel = ItemsData.getItemConsumeModel(itemName) or itemModel
+   self.consumeEntity = hlp.spawnConsumeEntity(item, self:getBonePose("item_slot" .. self:getWeaponSlot()))
 
-      local anim = ""
-      if item:isFood() then
-         anim = (self:getState("resting") and self.animations.sitbyfire.eat) or self.animations.idle.eat.default
-         self.animationsManager:subscribeAnimationEventIn(anim, "item_change", hlp.safeDestroyEntity, self.consumeEntity)
-      elseif item:isDrink() then
-         anim = (self:getState("resting") and self.animations.sitbyfire.drink) or self.animations.idle.drink.default
-      elseif item:isSmokable() then
-         anim = self.animations.idle.to.smoke
-         self.animationsManager:subscribeAnimationEventIn(anim, "smoking_blow", self.fx.smoking_smoke.play, self.fx.smoking_smoke)
-         self.animationsManager:subscribeAnimationEventIn(anim, "item_change", hlp.safeDestroyEntity, self.consumeEntity)
-      elseif item:isInjector() then
-         anim = self.animations.idle.injector.default
-         self.animationsManager:subscribeAnimationEventIn(anim, "item_change", function() self.consumeEntity:getMeshByName(consumeModel):setVisible(false) end)
-      end
+   local animations = self.animations
+   local isResting = self:getState("resting")
+   local anim = ""
+   if item:isFood() then
+      anim = (isResting and animations.sitbyfire.eat) or animations.idle.eat.default
+      self.animationsManager:subscribeAnimationEventIn(anim, "item_change", hlp.safeDestroyEntity, self.consumeEntity)
+   elseif item:isDrink() then
+      anim = (isResting and animations.sitbyfire.drink) or animations.idle.drink.default
+   elseif item:isSmokable() then
+      -- TODO: support sitbyfire smoking
+      anim = animations.idle.to.smoke
+      self.animationsManager:subscribeAnimationEventIn(anim, "smoking_blow", self.fx.smoking_smoke.play, self.fx.smoking_smoke)
+      self.animationsManager:subscribeAnimationEventIn(anim, "item_change", hlp.safeDestroyEntity, self.consumeEntity)
+   elseif item:isInjector() then
+      anim = animations.idle.injector.default
+      self.animationsManager:subscribeAnimationEventIn(anim, "item_change", function()
+         self.consumeEntity:getMeshByName(consumeModel):setVisible(false)
+      end)
+   end
 
-      self.animationsManager:playAction(anim)
+   local cycle = isResting and animations.sitbyfire.default or animations.idle.default[1]
+   self.animationsManager:playCycle(cycle)
+   self.animationsManager:playAction(anim)
 
-      coro.waitAnimationEventIn(self, anim, "buff_apply")
+   coro.waitAnimationEventIn(self, anim, "buff_apply")
 
-      self:applyItemEffects(item)
+   self:applyItemEffects(item)
 
-      coro.waitAnimationEnd(self, anim)
-
-      self:setState("consuming", false)
-      self:consume_finish()
-      self.consumeCoro = nil
-   end)
+   coro.waitAnimationEnd(self, anim)
 end
 
 function CMainCharacter:consume_finish()
    hlp.safeDestroyEntity(self.consumeEntity)
    self.fx.smoking_smoke:stop()
    self:setHeadLookingAllowed(true)
-   self.consumingItem = nil
+   self:setBBVar("consumingItem", nil)
    self:setDisableActionStates(false)
+   self:setState("consuming", false)
 end
 
 function CMainCharacter:interact_start()
@@ -1399,26 +1305,12 @@ end
 function CMainCharacter:onObjectTakenEventIn()
    if not self.interactTarget or not hlp.isOperable(self.interactTarget) then return end
 
-   local item
-   local res  = nil
-   local itemCount
+   local item, count = self.interactTarget:pickupItem(self.inventory)
    local countText = ""
-   local objName, scriptClass = hlp.getNameAndClass(self.interactTarget)
-   if self.interactTarget.isItem then
-      item = self.interactTarget
-      itemCount = item:getCount()
-      res  = self:getInventory():addItemObj(self.interactTarget)
-   else
-      item = self.interactTarget:getAsItem()
-      if item then
-         itemCount = item:getCount()
-         res  = self:getInventory():addItemObj(item)
+   if item then
+      if count and count > 1 then
+         countText = string.format("(%d)", count)
       end
-   end
-   if itemCount then
-      countText = string.format("(%d)", itemCount)
-   end
-   if res then
       gameplayUI:showInventoryPickInfo(item:getLabel() .. countText  .. " was added to Inventory")
    end
 end
@@ -1453,10 +1345,6 @@ function CMainCharacter:interactStopTimer()
    end
 end
 
-function CMainCharacter:interact_()
-   return self:getState("interacting") or self:getState("talk")
-end
-
 function CMainCharacter:startAiming()
    self:setHeadLookingAllowed(false)
    self:setState("aiming", true)
@@ -1474,13 +1362,17 @@ function CMainCharacter:stopAiming()
    end
 end
 
-function CMainCharacter:startHipFire(speed)
+function CMainCharacter:startHipFire(delay)
    local currentWeapon = self:getWeaponSlotItem()
-   if self:getState("reloading") or not currentWeapon or (currentWeapon and not currentWeapon:isRangedWeapon()) then return end
+   if self:getState("reloading") or not currentWeapon
+      or (currentWeapon and not currentWeapon:isRangedWeapon()
+      and currentWeapon:getItemName() ~= "strange_detector.itm") then return end
    self:setHeadLookingAllowed(false)
    self:setState("hipFire", true)
-   if self.aimAnimation then
-      self.animationsManager:playCycle(self.aimAnimation, speed)
+   local moveParams = self:getMovementParameters()
+   local _, aimAnimation = self:getAimingAnimations(moveParams.moveType, moveParams.dirType, currentWeapon:getAnimations())
+   if aimAnimation then
+      self.animationsManager:playCycle(aimAnimation, delay)
    end
    self:stopHipFire(5)
 end
@@ -1499,14 +1391,14 @@ function CMainCharacter:stopHipFire(delay, force)
    end, false)
 end
 
-function CMainCharacter:tryShoulder(delay)
+function CMainCharacter:tryShoulder(delay, shoulderAnimation)
    delay = delay or 0
    self:stopShoulderTimer()
    self.shoulderTimer = runTimer(delay, nil, function()
       if self:canInteract() and self:canAttack()
          and self:canMove() and self:canJump()
-         and self.shoulderAnimation then
-         self.animationsManager:playCycle(self.shoulderAnimation)
+         and shoulderAnimation then
+         self.animationsManager:playCycle(shoulderAnimation)
       end
    end, false)
 end
@@ -1518,6 +1410,20 @@ function CMainCharacter:stopShoulderTimer()
    end
 end
 
+function CMainCharacter:getDirectionalAnimations(animations, moveType, dirType)
+   local animationsMoveType = animations[moveType]
+
+   if not animationsMoveType then
+      return nil
+   end
+
+   if dirType and animationsMoveType[dirType] then
+      animationsMoveType = animationsMoveType[dirType]
+   end
+
+   return animationsMoveType
+end
+
 -- animations
 function CMainCharacter:animatedMoveEvent(moveType, dirType)
    if not CPlayer.animatedMoveEvent(self, moveType, dirType) then
@@ -1527,53 +1433,32 @@ function CMainCharacter:animatedMoveEvent(moveType, dirType)
    if self:getState("sliding") or self:getState("gathering") or self:getState("picking") or self:getState("openLootbox")
       or self:getState("knockout") or self:getState("sleepAtBed") or self:getState("falling") then return false end
 
-   local animations   = nil
    local currentWeapon = self:getWeaponSlotItem()
-   local animationSet = self:getInventory():getWeaponSlotAnimationSet()
-   local jumpAnims    = nil
-   local attackAnims  = nil
-   local cockAnims    = nil
-   local scanAnims    = nil
-   self.animations.cock = nil
-   self.animations.equipAnims = nil
-   self.animations.unequipAnims = nil
-   self.animations.scanAnim     = nil
+   local animationSet = currentWeapon and currentWeapon:getAnimations()
 
    local default = false
 
    self:stopShoulderTimer()
 
-   if not self.animations[moveType] then
+   local animationsMoveType = self:getDirectionalAnimations(self.animations, moveType, dirType)
+
+   if not animationsMoveType then
       return false
-   else
-      if not self.animations[moveType][dirType] or not dirType then
-         animations = self.animations[ moveType ][ animationSet ]
-         if not animations then
-            animations = self.animations[ moveType ][ "default" ]
-            default = true
-         end
-         jumpAnims   = self.animations[ moveType ]["jump"]
-         attackAnims = self.animations[ moveType ]["attack"]
-         scanAnims = self.animations[ moveType ]["scan"]
-         cockAnims = self.animations[ moveType ]["cock"]
-      else
-         animations = self.animations[ moveType ][ dirType ][ animationSet ]
-         if not animations then
-            animations = self.animations[ moveType ][ dirType ][ "default" ]
-            default = true
-         end
-         jumpAnims   = self.animations[ moveType ][ dirType ]["jump"]
-         attackAnims = self.animations[ moveType ][ dirType ]["attack"]
-         scanAnims = self.animations[ moveType ][ dirType ]["scan"]
-         cockAnims = self.animations[ moveType ][ dirType ]["cock"]
-      end
-      self.animations.equipAnims = self.animations["equip"][ moveType ]
-      self.animations.unequipAnims = self.animations["unequip"][ moveType ]
-      self.animations.scanAnim = scanAnims and (scanAnims[animationSet] or scanAnims.default)
+   end
+
+   local jumpAnims = animationsMoveType["jump"]
+   local jump
+   if jumpAnims then
+      jump = jumpAnims[animationSet] or jumpAnims["default"]
+   end
+
+   local animations = animationsMoveType[animationSet]
+   if not animations then
+      animations = animationsMoveType["default"]
+      default = true
    end
 
    local animation = animations
-
    if type(animations) == "table" then
       if default then
          animation = random.choice(animations)
@@ -1582,13 +1467,7 @@ function CMainCharacter:animatedMoveEvent(moveType, dirType)
       end
    end
 
-   if jumpAnims then
-      self.animations.jump = jumpAnims[animationSet]
-      if not self.animations.jump then
-         self.animations.jump = jumpAnims["default"]
-      end
-   end
-
+   self:setBBVar("lastJumpAnimation", nil)
    if self:getState("swimming") then
       if moveType == "idle" then
          animation = self.animations.swim.idle
@@ -1598,167 +1477,126 @@ function CMainCharacter:animatedMoveEvent(moveType, dirType)
    elseif self:getState("crouch") then
       animation = self.animations.crouch.default
    elseif self:getState("jumping") then
-      animation = self.animations.jump
+      self:setBBVar("lastJumpAnimation", jump)
+      animation = jump
    end
 
    --log("event type = " .. eventType)
    -- aim animation processing
-   if (animations and type(animations) == "table" and not default
-         and not self:getState("swimming") and not self:getState("jumping")
-         and currentWeapon:isRangedWeapon()) then
-      self.loopAnimation = animations[1]
-      self.aimAnimation  = animations[#animations]
-      self.shoulderAnimation = animations[2]
-
+   local loopAnimation, aimAnimation, shoulderAnimation = self:getAimingAnimations(moveType, dirType, animationSet)
+   if (loopAnimation and not self:getState("swimming") and not self:getState("jumping")) then
       if self:getState("hipFire") then
-         animation = self.aimAnimation
+         animation = aimAnimation
       else
-         animation = self.loopAnimation
+         animation = loopAnimation
          if moveType == "idle" then
-            self:tryShoulder(5)
+            self:tryShoulder(5, shoulderAnimation)
          end
       end
    elseif self:getState("remoteControl") then
       animation = self.animations.control.default
-   else
-      self.loopAnimation = animation
-      self.aimAnimation  = nil
    end
 
-   --log(animation)
    self.animationsManager:playCycle(animation)
-   if type(animation) ~= "table" then
-      self.animationsManager:subscribeAnimationEventIn(animation, "step1", self.onStepEventIn, self)
-      self.animationsManager:subscribeAnimationEventIn(animation, "step2", self.onStepEventIn, self)
-   end
-
-
-   if attackAnims then
-      self.animations.attack = attackAnims[ animationSet ]
-
-      if cockAnims then
-         self.animations.cock = cockAnims[animationSet]
-      end
-
-      self.animations.attackAlt = attackAnims.melee_alt
-      if animationSet == "boxing" and attackAnims.boxing_alt then
-         self.animations.attackAlt = attackAnims.boxing_alt
-      end
-
-      if not self.animations.attack then
-         self.animations.attack = attackAnims[ "default" ]
-      elseif type(self.animations.attack) == "table" then
-         self.animations.attack = random.choice(self.animations.attack)
-      end
-      if type(self.animations.attackAlt) == "table" then
-         self.animations.attackAlt = random.choice(self.animations.attackAlt)
-      end
-   end
+   self.animationsManager:subscribeAnimationEventIn(animation, "step1", self.onStepEventIn, self)
+   self.animationsManager:subscribeAnimationEventIn(animation, "step2", self.onStepEventIn, self)
 
    return true
 end
 
-function CMainCharacter:animatedEvent(eventType, direction)
-   if not CPlayer.animatedEvent(self, eventType) then
-      return false
+function CMainCharacter:getAimingAnimations(moveType, dirType, animationSet)
+   local animationsMoveType = self:getDirectionalAnimations(self.animations, moveType, dirType)
+
+   if not animationsMoveType then
+      return nil
    end
 
-   if not self.animations[eventType] then
-      return false
+   local animations = animationsMoveType[animationSet]
+   if not animations then
+      return nil
    end
-   --log("event = " .. eventType)
-   local currentWeapon = self:getWeaponSlotItem()
 
-   if eventType == "attack" or eventType == "attackAlt" then
-      ImmersiveUI.triggerUI("weapon")
-      if not currentWeapon then return false end
+   local loopAnimation, aimAnimation, shoulderAnimation
+   if type(animations) == "table" then
+      loopAnimation = animations[1]
+      aimAnimation  = animations[#animations]
+      shoulderAnimation = animations[2]
+   end
 
-      local anim = self.animations.attack
+   return loopAnimation, aimAnimation, shoulderAnimation
+end
 
-      --TODO:FIXME: Figure out why attack event sometimes sent before self.animations.attack assign
-      if not anim or anim == "" then return end
+function CMainCharacter:getScanAnimations(moveType, dirType, animationSet)
+   local directionalAnimations = self:getDirectionalAnimations(self.animations, moveType, dirType)
 
-      if eventType == "attackAlt" and currentWeapon:isMeleeWeapon() then anim = self.animations.attackAlt end
+   if not directionalAnimations then
+      return nil
+   end
 
-      if currentWeapon then
-         if self:getState("reloading") and currentWeapon:isRangedWeapon() and currentWeapon:isMagazineEmpty() then
-            return false
-         elseif self:getState("reloading") then
-            self:tryCancelReloading()
-         end
-         self:startHipFire(0.01)
+   local scanAnims = directionalAnimations["scan"]
+   return scanAnims and (scanAnims[animationSet] or scanAnims.default)
+end
 
-         if currentWeapon:isWeapon() then
-            self.attackAnimationTimeStart = getGameTime()
-            if currentWeapon:isRangedWeapon() and currentWeapon:isMagazineEmpty() then
-               if currentWeapon:getAvailableAmmoItem() and getGlobalParam("firstTimeReloading") then
-                  gameplayUI.annoyingHintUI:addTask(function() return string.format("Press '%s' to reload", getButtonCurrentKeyName("RELOAD")) end, "reloading")
-               end
-               runTimer(0.2, self, self.onAttackAnimationStop, false)
-            elseif currentWeapon:getWeaponType() == "energy" and currentWeapon.energyCost > self:getStatCount("energy") then
-               runTimer(0.2, self, self.onAttackAnimationStop, false)
-            else
-               self.animationsManager:playAction(anim)
-               --Cocking shotguns and carbine
-               if self.animations.cock then
-                  self.animationsManager:subscribeAnimationEnd(anim, function()
-                     self.animationsManager:playAction(self.animations.cock)
-                     self.animationsManager:subscribeAnimationEnd(self.animations.cock, self.onAttackAnimationStop, self)
-                  end)
-               else
-                  self.animationsManager:subscribeAnimationEnd(anim, self.onAttackAnimationStop, self)
-               end
-            end
+function CMainCharacter:getEquipAnimations(moveType, dirType, animationSet)
+   local equip, unequip = self.animations["equip"], self.animations["unequip"]
+   equip = equip and equip[moveType] and equip[moveType][animationSet]
+   unequip = unequip and unequip[moveType] and unequip[moveType][animationSet]
 
-            self:setState("disableInteraction", true)
-            self:setState("disableAttack", true)
-            self:setState("blockItemUse", true)
-            if self.safeDisableAttackTimer == nil then
-               self.safeDisableAttackTimer = runTimer(5, nil, function()
-                  self:setState("disableAttack", false)
-                  self:setState("disableMove", false)
-                  self:setState("blockItemUse", false)
-                  self:setState("disableInteraction", false)
-               end, false)
-            end
-         end
+   return equip, unequip
+end
 
-         if currentWeapon:isMeleeWeapon() then
-            self:setHeadLookingAllowed(false)
-            self:setState("disableJump", true)
-            self:setState("disableInteraction", true)
-            if not string.find(anim, "__") then
-               self:setState("disableMove", true)
-            end
-            self.animationsManager:subscribeAnimationEventIn(anim, "attack", self.onAttackAnimationIn, self)
-            self.animationsManager:subscribeAnimationEventOut(anim, "attack", self.onAttackAnimationOut, self)
-         elseif currentWeapon:isRangedWeapon() then
-            runTimer(0.05, nil, function()
-               if getGameOption("cameraShake") and currentWeapon:getMagazine() > 0 then
-                  if currentWeapon:getAnimations() == "shotgun" then
-                     self:shakeCamera(5, 0.2)
-                  elseif currentWeapon:getWeaponType() ~= "energy" then
-                     self:shakeCamera(3, 0.2)
-                  end
-               end
-               self:OnItemActivateSafe(currentWeapon)
-               self:spendStat("stamina", "staminaRangeAttackCost", true)
-            end, false)
-         else
-            self:OnItemActivateSafe(currentWeapon)
-         end
-      end
+function CMainCharacter:getAttackAnimations(moveType, dirType, animationSet)
+   local directionalAnimations = self:getDirectionalAnimations(self.animations, moveType, dirType)
 
-   elseif eventType == "land" then
-      if self.deltaLandingSpeed > 0 and not self.god_mode then
-         self:setState("landing", true)
+   if not directionalAnimations then
+      return nil, nil
+   end
+
+   local attackAnims = directionalAnimations["attack"]
+
+   if not attackAnims then
+      return nil, nil
+   end
+
+   local attack = attackAnims[animationSet]
+   local attackAlt = attackAnims["melee_alt"]
+
+   if animationSet == "boxing" and attackAnims["boxing_alt"] then
+      attackAlt = attackAnims["boxing_alt"]
+   end
+
+   if not attack then
+      attack = attackAnims["default"]
+   elseif type(attack) == "table" then
+      attack = random.choice(attack)
+   end
+   if type(attackAlt) == "table" then
+      attackAlt = random.choice(attackAlt)
+   end
+
+   return attack, attackAlt
+end
+
+function CMainCharacter:getCockingAnimation(moveType, dirType, animationSet)
+   local directionalAnimations = self:getDirectionalAnimations(self.animations, moveType, dirType)
+
+   if not directionalAnimations then
+      return nil
+   end
+
+   local cockAnims = directionalAnimations["cock"]
+
+   return cockAnims and cockAnims[animationSet]
+end
+
+function CMainCharacter:landing_running()
+   local waitLandingEnd
+   if not self:getState("swimming") then
+      local deltaLandingSpeed = self:getBBVar("deltaLandingSpeed")
+      if deltaLandingSpeed > 0 and not self.god_mode then
          self:setDisableActionStates(true)
-         local function landingEnd(self)
-            self:setState("landing", false)
-            self:setDisableActionStates(false)
-         end
 
-         local fallDamage = scaleValue(self:getStatCount("healthMax"), self.deltaLandingSpeed, self.parameters.maxLandingSpeed)
+         local fallDamage = scaleValue(self:getStatCount("healthMax"), deltaLandingSpeed, self.parameters.maxLandingSpeed)
          local anim
          local animationSet = self:getInventory():getWeaponSlotAnimationSet()
          if fallDamage <= 50 then
@@ -1766,69 +1604,296 @@ function CMainCharacter:animatedEvent(eventType, direction)
          else
             anim = self.animations.land.hard[animationSet] or self.animations.land.hard.default
          end
-         self.animationsManager:playAction(anim)
-         self.animationsManager:subscribeAnimationEnd(anim, landingEnd, self)
+
+         local boots = self:getInventory():getSlotItem("boots")
+         if boots and boots.fallDamageBlockMul and self:getStatCount("energy") >= boots.fallEnergyCost then
+            fallDamage = fallDamage * boots.fallDamageBlockMul
+            self:changeStatCount("energy", -boots.fallEnergyCost)
+         end
+         self:hit(fallDamage, nil)
+
+         if not self:getState("dead") then
+            self.soundManager:OnEventIn("hurt2")
+
+            self.animationsManager:playAction(anim)
+            self:animatedMoveEvent("idle")
+            waitLandingEnd = anim
+         end
       end
-   elseif eventType == "jump" then
-      self.animationsManager:stopActionOrCycle(self.animations.jump)
+   end
+
+   if waitLandingEnd then
+      coro.waitAnimationEnd(self, waitLandingEnd)
+   end
+end
+
+function CMainCharacter:landing_finish()
+   self:setState("landing", false)
+   self:setDisableActionStates(false)
+end
+
+function CMainCharacter:animatedEvent(eventType, direction)
+   if not CPlayer.animatedEvent(self, eventType) then
+      return false
+   end
+
+   local eventsToCheck = {
+      ["jump"] = true,
+   }
+   if eventsToCheck[eventType] then
+      if not self.animations[eventType] then
+         return false
+      end
+   end
+   --log("event = " .. eventType)
+
+   if eventType == "jump" then
+      local lastJumpAnimation = self:getBBVar("lastJumpAnimation")
+      if lastJumpAnimation then
+         self.animationsManager:stopCycle(lastJumpAnimation)
+      end
       self:spendStat("stamina", "staminaJumpCost", true)
       self.sounds.jump:play()
-   elseif eventType == "hit" then
-      local anim = self.animations.hit.default
-      if direction and currentWeapon and currentWeapon:getAnimations() then
-         local animSet = currentWeapon:getAnimations()
-         if self.animations.hit[animSet] then
-            anim = self.animations.hit[animSet][direction]
-         end
-
-         if currentWeapon:isRangedWeapon() then
-            self:startHipFire(0.1)
-         end
-      end
-
-      if not self:getState("climbing_ladder") and not self:getState("climbing_ladder_down") then
-         self.animationsManager:playAction(anim, 0.3, 0.3)
-      else
-         self.soundManager:OnEventIn("hurt2")
-      end
+   elseif eventType == "hit" and not (self:getState("climbing_ladder") or self:getState("climbing_ladder_down")) then
+      self:setBBVar("hit_recovery_direction", direction)
+      self:requestBehaviorStart("hit recovery")
    end
 
    return true
 end
 
-function CMainCharacter:onAttackAnimationIn()
-   self:OnItemActivateSafe(self:getWeaponSlotItem())
-   self:spendStat("stamina", "staminaMeleeAttackCost", true)
-end
+function CMainCharacter:hit_recovery_running()
+   local currentWeapon = self:getWeaponSlotItem()
+   local direction = self:getBBVar("hit_recovery_direction")
 
-function CMainCharacter:onAttackAnimationOut()
-   self:OnItemDeactivateSafe(self:getWeaponSlotItem())
-end
+   local anim = self.animations.hit.default
+   if direction and currentWeapon and currentWeapon:getAnimations() then
+      local animSet = currentWeapon:getAnimations()
+      if self.animations.hit[animSet] then
+         anim = self.animations.hit[animSet][direction]
+      end
 
-function CMainCharacter:onAttackAnimationStop()
-   local coolDownTime = 0
-   local attackAnimationTimeElapsed = math.min(getGameTime() - self.attackAnimationTimeStart, 2)
-   local weapon = self:getWeaponSlotItem()
-   if weapon then
-      self:OnItemDeactivateSafe(weapon)
-      coolDownTime = weapon:getCooldown()
-      if weapon:isMeleeWeapon() then
-         self:setHeadLookingAllowed(true)
+      if currentWeapon:isRangedWeapon() then
+         self:startHipFire(0.1)
       end
    end
+
+   self.animationsManager:playAction(anim, 0.3, 0.3)
+   coro.waitAnimationEnd(self, anim)
+end
+
+function CMainCharacter:hit_recovery_finish()
+   self:setState("hit_recovery", false)
+   self:setBBVar("hit_recovery_direction", nil)
+end
+
+function CMainCharacter:_stopAttackAnimationTimer()
+   if self.attackAnimationTimeStart then
+      self.attackAnimationTimeStart:stop()
+      self.attackAnimationTimeStart = nil
+   end
+end
+
+function CMainCharacter:_resetAttackAnimationTimer()
+   self:_stopAttackAnimationTimer()
+   self.attackAnimationTimeStart = runTimerAdv(math.huge)
+end
+
+function CMainCharacter:_getAttackAnimationTime()
+   local timer = self.attackAnimationTimeStart
+   return timer and timer.getTimeDuration and timer:getTimeDuration() or 0
+end
+
+function CMainCharacter:attack_ranged_running()
+   local currentWeapon = self:getWeaponSlotItem()
+
+   ImmersiveUI.triggerUI("weapon")
+
+   local moveType, dirType = self:getCurrentMoveType(), self:getMovementParameters().dirType
+   local animationSet = currentWeapon:getAnimations()
+   local anim = self:getAttackAnimations(moveType, dirType, animationSet)
+
+   if self:getState("reloading") and currentWeapon:isMagazineEmpty() then
+      return
+   elseif self:getState("reloading") then
+      self:tryCancelReloading()
+   end
+   self:startHipFire(0.01)
+
+   self:setState("disableInteraction", true)
+   self:setState("attackCooldown", true)
+   self:setState("blockItemUse", true)
+   if self.safeCooldownTimer == nil then
+      self:_startSafeCooldownTimer()
+   end
+
+   self:_resetAttackAnimationTimer()
+   if currentWeapon:isMagazineEmpty() then
+      if currentWeapon:getAvailableAmmoItem() and getGlobalParam("firstTimeReloading") then
+         gameplayUI.annoyingHintUI:addTask(function()
+            return string.format("Press '%s' to reload", getButtonCurrentKeyName("RELOAD"))
+         end, "reloading")
+      end
+   elseif currentWeapon:getWeaponType() == "energy" and currentWeapon.energyCost > self:getStatCount("energy") then
+      return
+   end
+
+   runTimer(0.05, nil, function()
+      if getGameOption("cameraShake") and currentWeapon:getMagazine() > 0 then
+         if currentWeapon:getAnimations() == "shotgun" then
+            self:shakeCamera(5, 0.2)
+         elseif currentWeapon:getWeaponType() ~= "energy" then
+            self:shakeCamera(3, 0.2)
+         end
+      end
+      self:OnItemActivateSafe(currentWeapon)
+      self:spendStat("stamina", "staminaRangeAttackCost", true)
+   end, false)
+
+   if not currentWeapon:isMagazineEmpty() then
+      self.animationsManager:playAction(anim)
+      coro.waitAnimationEnd(self, anim)
+   end
+
+   --Cocking shotguns and carbine
+   local cockingAnimation = self:getCockingAnimation(moveType, dirType, animationSet)
+   if cockingAnimation then
+      self.animationsManager:playAction(cockingAnimation)
+      coro.waitAnimationEnd(self, cockingAnimation)
+   end
+end
+
+function CMainCharacter:attack_ranged_finish()
+   local weapon = self:getWeaponSlotItem()
+   self:OnItemDeactivateSafe(weapon)
 
    self:setDisableActionStates(false)
-   self:setState("disableAttack", true)
 
-   if getGameOption("autoReload") and weapon and weapon:isRangedWeapon() and weapon:isMagazineEmpty() then
-      if self:tryReload() then
-         return
-      end
+   self:startCooldown()
+end
+
+function CMainCharacter:startCooldown()
+   local coolDownTime = 0
+   local attackAnimationTimeElapsed = math.min(self:_getAttackAnimationTime(), 2)
+   self:_stopAttackAnimationTimer()
+
+   local gun = self:getWeaponSlotItem()
+   if gun then
+      coolDownTime = gun:getCooldown()
    end
-
    coolDownTime = math.max(0, coolDownTime - attackAnimationTimeElapsed)
 
-   runTimer(coolDownTime, self, self.coolDown, false)
+   runTimerAdv(coolDownTime, false, self.coolDown, self)
+end
+
+function CMainCharacter:_startSafeCooldownTimer()
+   self.safeCooldownTimer = runTimer(5, nil, function()
+      self:setState("attackCooldown", false)
+      self:setState("disableMove", false)
+      self:setState("blockItemUse", false)
+      self:setState("disableInteraction", false)
+   end, false)
+end
+
+function CMainCharacter:coolDown()
+   if self.safeCooldownTimer then
+      self.safeCooldownTimer:stop()
+      self.safeCooldownTimer = nil
+   end
+   self:setState("attackCooldown", false)
+end
+
+function CMainCharacter:attack_melee_running()
+   local currentWeapon = self:getWeaponSlotItem()
+
+   ImmersiveUI.triggerUI("weapon")
+
+   local moveType, dirType = self:getCurrentMoveType(), self:getMovementParameters().dirType
+   local animationSet = currentWeapon:getAnimations()
+   local anim, attackAlt = self:getAttackAnimations(moveType, dirType, animationSet)
+
+   if getButton("AIM") then anim = attackAlt end
+
+   self:setState("disableInteraction", true)
+   self:setState("attackCooldown", true)
+   self:setState("blockItemUse", true)
+   if self.safeCooldownTimer == nil then
+      self:_startSafeCooldownTimer()
+   end
+
+   self.animationsManager:playAction(anim)
+
+   self:setHeadLookingAllowed(false)
+   self:setState("disableJump", true)
+   self:setState("disableInteraction", true)
+
+   if not string.find(anim, "__") then
+      self:setState("disableMove", true)
+   end
+
+   coro.waitAnimationEventIn(self, anim, "attack")
+   self:OnItemActivateSafe(currentWeapon)
+   self:spendStat("stamina", "staminaMeleeAttackCost", true)
+
+   coro.waitAnimationEventOut(self, anim, "attack")
+   self:OnItemDeactivateSafe(currentWeapon)
+
+   coro.waitAnimationEnd(self, anim)
+end
+
+function CMainCharacter:attack_melee_finish()
+   local weapon = self:getWeaponSlotItem()
+   self:OnItemDeactivateSafe(weapon)
+   self:setHeadLookingAllowed(true)
+   self:setDisableActionStates(false)
+   self:coolDown()
+end
+
+function CMainCharacter:attack_misc_start()
+   local currentWeapon = self:getWeaponSlotItem()
+
+   ImmersiveUI.triggerUI("weapon")
+   self:OnItemActivateSafe(currentWeapon)
+end
+
+function CMainCharacter:attack_misc_finish()
+   return self:attack_melee_finish()
+end
+
+function CMainCharacter:side_step_running()
+   local weapon = self:getWeaponSlotItem()
+   local animationSet = self:getInventory():getWeaponSlotAnimationSet()
+   local dir = self:getBBVar("sideStepDir")
+   local animation = self.animations.step[dir][animationSet]
+   if self:spendStat("stamina", "staminaSideStepCost", false) then
+      self:setDisableActionStates(true)
+      self:setState("sideStepping", true)
+      self:stopMove()
+
+      local pushDir = self:getDir()
+      if dir == "back" then
+         pushDir = vec3RotateEuler(pushDir, { x=0, y=180, z=0})
+      elseif dir == "left" then
+         pushDir = vec3RotateEuler(pushDir, { x=0, y=90, z=0})
+      elseif dir == "right" then
+         pushDir = vec3RotateEuler(pushDir, { x=0, y=-90, z=0})
+      end
+      self:push(pushDir, 10000, 0.6)
+
+      if weapon:isRangedWeapon() then
+         self:startHipFire(0)
+      else
+         self.animationsManager:playCycle(self.animations.idle[animationSet])
+      end
+      self.animationsManager:playAction(animation)
+
+      coro.waitAnimationEnd(self, animation)
+   end
+end
+
+function CMainCharacter:side_step_finish()
+   self:setState("sideStepping", false)
+   self:setDisableActionStates(false)
 end
 
 function CMainCharacter:onStopMessage()
@@ -1839,10 +1904,10 @@ function CMainCharacter:startAnimatedGathering(obj, toolPrefab)
       gameplayUI.billboardUI:setup("Gathering", "Press 'Activate' to stop")
    end
    self:holsterWeapon()
+   self:setOrientationSpeed(0)
    self:setDisableActionStates(true)
    self:setState("disableInteraction", false) --so it could be cancelled by player
    self:setState("gathering", true)
-   self:setState("waitGatherFinish", false)
    self.gatherObj = obj
    if toolPrefab and not self.toolEntity then
       self.toolEntity = getScene():createEntity(toolPrefab, "")
@@ -1854,19 +1919,17 @@ function CMainCharacter:startAnimatedGathering(obj, toolPrefab)
 end
 
 function CMainCharacter:tryStopAnimatedGathering(forced)
-   if self.gatherObj:getActivationsLeft() <= 0 or forced then
+   if self.gatherObj and self.gatherObj:getActivationsLeft() <= 0 or forced then
       self.animationsManager:clearCallbacks(self.gatherAnimation)
       self:setDisableActionStates(false)
       self:setState("gathering", false)
-      self:setState("waitGatherFinish", false)
-      self.toolEntity = hlp.safeDestroyEntity(self.toolEntity)
+      hlp.safeDestroyEntity(self.toolEntity)
+      self.toolEntity = nil
       gameplayUI.billboardUI:show(false)
       if self.gatherObj then
          self.gatherObj:deactivate(self)
          self.gatherObj = nil
       end
-   else --For player to be able to cancel it again
-      self:setState("disableInteraction", false)
    end
 end
 
@@ -1878,6 +1941,12 @@ function CMainCharacter:forceStopGathering(onHit)
 end
 
 function CMainCharacter:startDigging(obj)
+   self:setState("digging", true)
+   self:setBBVar("gatherObj", obj)
+end
+
+function CMainCharacter:digging_start()
+   local obj = self:getBBVar("gatherObj")
    self:startAnimatedGathering(obj, "shovel.sbg")
    self.animationsManager:playCycle(self.animations.dig.default)
 
@@ -1891,8 +1960,6 @@ function CMainCharacter:startDigging(obj)
    end
 
    local function onDigEventIn()
-      self:setState("waitGatherFinish", true)
-      self:setState("disableInteraction", true)
       self.gatherObj:onDigDone()
    end
 
@@ -1903,7 +1970,14 @@ function CMainCharacter:startDigging(obj)
    self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "end", self.tryStopAnimatedGathering, self)
 end
 
+
 function CMainCharacter:startMining(obj)
+   self:setState("mining", true)
+   self:setBBVar("gatherObj", obj)
+end
+
+function CMainCharacter:mining_start()
+   local obj = self:getBBVar("gatherObj")
    local prefabName = obj:getPrefabName()
    if obj:getPose():getPos().y - self:getPose():getPos().y > 50
       or prefabName == "shard_4.sbg"
@@ -1917,8 +1991,6 @@ function CMainCharacter:startMining(obj)
    self.animationsManager:playCycle(self.gatherAnimation)
 
    local function onMiningHit()
-      self:setState("waitGatherFinish", true)
-      self:setState("disableInteraction", true)
       local timesMined = getGlobalParam("timesMined") + 1
       setGlobalParam("timesMined", timesMined)
       local skillUp = 0
@@ -1956,14 +2028,6 @@ function CMainCharacter:startMining(obj)
    self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "end", self.tryStopAnimatedGathering, self)
 end
 
-function CMainCharacter:coolDown()
-   if self.safeDisableAttackTimer then
-      self.safeDisableAttackTimer:stop()
-      self.safeDisableAttackTimer = nil
-   end
-   self:setState("disableAttack", false)
-end
-
 function CMainCharacter:OnHotbarItemClick(index)
    local hoveredItem = gameplayUI.hoveredItem
    --Set the currently hovered item to hotbar (excluding the Q slot if container is open)
@@ -1997,7 +2061,7 @@ end
 
 function CMainCharacter:tryCancelEquipping()
    if self:getState("equipping") then
-      self.itemToEquip = nil
+      self:setBBVar("itemToEquip", nil)
       self.animationsManager:stopActionsAndCycles()
       self:setState("blockItemUse", false)
       self:setState("disableAttack", false)
@@ -2007,7 +2071,7 @@ end
 
 function CMainCharacter:tryCancelUnequipping()
    if self:getState("unequipping") then
-      self.itemToUnequip = nil
+      self:setBBVar("itemToUnequip", nil)
       self.animationsManager:stopActionsAndCycles()
       self:setState("blockItemUse", false)
       self:setState("disableAttack", false)
@@ -2015,96 +2079,175 @@ function CMainCharacter:tryCancelUnequipping()
    end
 end
 
+--[[
+assume all weapons
+
+equipItem -> check
+  equipping?
+    ignore, finish current equipping
+  unequipping?
+    switch item to equip after unequipping
+--]]
+
 function CMainCharacter:equipItem(item)
-   local weapon = self:getWeaponSlotItem()
-   local slotID = item:getAttireType() or 1
-   if slotID == 1 then
-      self:setState("equipping", true)
-      self.itemToEquip = item
-      if weapon then
-         self:unequipItem(weapon)
-      else
-         self:onUnequipEnd()
+   local slotID = item:getAttireType()
+   if not slotID then -- put into weapon slot
+      if not self:getState("equipping") then
+         self:setBBVar("itemToEquip", item)
       end
    else
       self:getInventory():equipSlotWithItem(slotID, item:getId())
    end
 end
 
+--[[
+assume all weapons
+
+unequipItem -> check
+  equipping?
+    equipping same item?
+      cancel equip
+    equipping another item?
+      unequip it
+  unequipping?
+    same item?
+      ignore, already unequipping
+    other item?
+      unequip slot
+--]]
 function CMainCharacter:unequipItem(item, forceAutoAssign)
-   if item and item ~= self.itemToUnequip then
-      if item == self:getWeaponSlotItem() then
-         self:tryCancelReloading()
-         self:stopHipFire(0, true)
-         self:setState("unequipping", true)
-         self:setState("blockItemUse", true)
-         self:setState("disableAttack", true)
-         self:setDialogAnimationAllowed(false)
-         self.itemToUnequip = item
-         local unequipAnim = self.animations.unequipAnims[item:getAnimations()]
-         if unequipAnim then
-            self.animationsManager:playAction(unequipAnim, 0.3, 0.3, nil)
-            self.animationsManager:subscribeAnimationEventIn(unequipAnim, "unequip", self.onUnequipEventIn, self, forceAutoAssign)
-            self.animationsManager:subscribeAnimationEnd(unequipAnim, self.onUnequipEnd, self)
-         else
-            self:onUnequipEventIn(forceAutoAssign)
-            self:onUnequipEnd()
-         end
-      else
-         local slotID = item:getAttireType() or getKeyByValue(self:getInventory().fastAccessSlots, item:getItemName()) or 1
+   if not item then
+      return
+   end
+
+   local function unequipSlot()
+      local slotID = item:getAttireType() or item:getFastAccessSlot()
+      if slotID then
          self:getInventory():unequipSlot(slotID)
       end
    end
+
+   if self:getState("equipping") then
+      if self:getBBVar("itemToEquip") == item then
+         self:setState("equipping", false)
+      else
+         unequipSlot()
+      end
+   elseif self:getState("unequipping") then
+      if self:getBBVar("itemToUnequip") ~= item then
+         unequipSlot()
+      end
+   elseif item == self:getWeaponSlotItem() then
+      self:tryCancelReloading()
+      self:stopHipFire(0, true)
+      self:setState("unequipping", true)
+      self:setBBVar("itemToUnequip", item)
+      self:setBBVar("forceAutoAssign", forceAutoAssign)
+   else
+      unequipSlot()
+   end
 end
 
-function CMainCharacter:onUnequipEventIn(forceAutoAssign)
-   self:holsterWeapon(true, forceAutoAssign)
-   self:move_start()
-end
+function CMainCharacter:unequip_running()
+   local itemToUnequip = self:getBBVar("itemToUnequip")
+   local itemToEquip = self:getBBVar("itemToEquip")
 
-function CMainCharacter:onUnequipEnd()
-   self:setState("unequipping", false)
-   self:setState("blockItemUse", false)
-   self:setState("disableAttack", false)
-   self:setDialogAnimationAllowed(true)
-   self.itemToUnequip = nil
-   if self.itemToEquip then
+   local forceAutoAssign = self:getBBVar("forceAutoAssign")
+
+   self:setDialogAnimationAllowed(false)
+   self:setState("blockItemUse", true)
+   self:setState("disableAttack", true)
+
+   if itemToEquip then
+      itemToUnequip = self:getWeaponSlotItem()
+      if itemToUnequip then
+         self:setBBVar("itemToUnequip", itemToUnequip)
+      end
+   end
+
+   if itemToUnequip then
+      self:setState("unequipping", true)
+
+      local moveType = self:getCurrentMoveType()
+      local dirType = self:getMovementParameters().dirType
+      local animationSet = itemToUnequip:getAnimations()
+      local _, unequipAnim = self:getEquipAnimations(moveType, dirType, animationSet)
+
+      if unequipAnim then
+         self.animationsManager:playAction(unequipAnim, 0.3, 0.3, nil)
+
+         coro.waitAnimationEventIn(self, unequipAnim, "unequip")
+         self:onUnequipEventIn(forceAutoAssign)
+
+         coro.waitAnimationEnd(self, unequipAnim)
+      else
+         self:onUnequipEventIn(forceAutoAssign)
+      end
+   end
+
+   -- we reacquire itemToEquip since it could have changed during the unequipping
+   itemToEquip = self:getBBVar("itemToEquip")
+   if itemToEquip then
+      self:setState("unequipping", false)
       self:setState("equipping", true)
-      self:setState("blockItemUse", true)
-      self:setState("disableAttack", true)
-      self:setDialogAnimationAllowed(false)
-      local equipAnim = self.animations.equipAnims[self.itemToEquip:getAnimations()]
+      local moveType = self:getCurrentMoveType()
+      local dirType = self:getMovementParameters().dirType
+      local animationSet = itemToEquip:getAnimations()
+      local equipAnim = self:getEquipAnimations(moveType, dirType, animationSet)
+      local cycle = self:getAimingAnimations(moveType, dirType, animationSet)
+
       if equipAnim then
          self.animationsManager:playAction(equipAnim, 0.3, 0.3, nil)
-         self.animationsManager:subscribeAnimationEventIn(equipAnim, "equip", self.onEquipEventIn, self)
+         if cycle then
+            self.animationsManager:playCycle(cycle)
+         end
+
+         coro.waitAnimationEventIn(self, equipAnim, "equip")
+         self:onEquipEventIn()
+
+         coro.waitAnimationEnd(self, equipAnim)
       else
          self:onEquipEventIn()
       end
    end
 end
 
+function CMainCharacter:unequip_finish()
+   self:setState("unequipping", false)
+   self:setState("equipping", false)
+   self:setState("blockItemUse", false)
+   self:setState("disableAttack", false)
+
+   self:setDialogAnimationAllowed(true)
+
+   self:setBBVar("itemToUnequip", nil)
+   self:setBBVar("itemToEquip", nil)
+   self:setBBVar("forceAutoAssign", nil)
+end
+
+function CMainCharacter:onUnequipEventIn(forceAutoAssign)
+   self:holsterWeapon(true, forceAutoAssign)
+   self:move_start() -- TODO: playCycle is called all over the place with aiming animations. see if aiming animations could be moved to ai tree
+end
+
 function CMainCharacter:onEquipEventIn()
-   if not self.itemToEquip then return end
+   local itemToEquip = self:getBBVar("itemToEquip")
+   if not itemToEquip then return end
    local pInventory = self:getInventory()
-   if self.itemToEquip:isWeapon() then
-      local fastSlot = self.itemToEquip:getFastAccessSlot()
+   if itemToEquip:isWeapon() then
+      local fastSlot = itemToEquip:getFastAccessSlot()
       if fastSlot then
          pInventory:unequipSlot(fastSlot, true)
       else
-         pInventory:autoAssignFastAccessSlot(self.itemToEquip:getId(), false)
+         pInventory:autoAssignFastAccessSlot(itemToEquip:getId(), false)
       end
    end
 
-   self.lastWeapon = self.itemToEquip
-   self:getInventory():equipSlotWithItem(self:getWeaponSlot(), self.itemToEquip:getId())
-   self:startHipFire(0.01)
-   gameplayUI.characterUI:setStatisticsCombat(self.itemToEquip)
+   self.lastWeapon = itemToEquip
+   self:getInventory():equipSlotWithItem(self:getWeaponSlot(), itemToEquip:getId())
+   self:startHipFire()
    ImmersiveUI.triggerUI("weapon")
-   self.itemToEquip = nil
-   self:setState("blockItemUse", false)
-   self:setState("disableAttack", false)
-   self:setState("equipping", false)
-   self:setDialogAnimationAllowed(true)
+   self:setBBVar("itemToEquip", nil)
 end
 
 function CMainCharacter:useItem(item)
@@ -2258,6 +2401,8 @@ function CMainCharacter:startControlObject(object, entityName, entityClass, came
    self.controlledCopy.controlledOriginal:setVisible(false)
    self.controlledCopy.controlledOriginal:setActive(false)
 
+   self:holsterWeapon()
+
    setPlayer(self.controlledCopy)
    gameplayUI:setFocusObj(nil)
 end
@@ -2272,6 +2417,7 @@ function CMainCharacter:onStopControlObject()
 
    getScene():destroyEntity(self.controlledCopy)
    self.controlledCopy = nil
+   getScene():restoreAmbientForMC()
 end
 
 function CMainCharacter:hasItem(itemName)
@@ -2279,13 +2425,6 @@ function CMainCharacter:hasItem(itemName)
    if not item then return false end
    return true
 end
-
-function CMainCharacter:OnStuckIn()
-end
-
-function CMainCharacter:OnStuckOut()
-end
-
 
 function CMainCharacter:tryCancelActions(onHit)
    self:tryCancelCooking()
@@ -2298,19 +2437,6 @@ function CMainCharacter:tryCancelActions(onHit)
       self:forceStopResting()
    elseif self:getState("gathering") then
       self:forceStopGathering(onHit)
-   end
-end
-
-function CMainCharacter:tryCancelLadder()
-   if self:getState("climbing_ladder_down") or self:getState("climbing_ladder") then
-      if self.ladderCoro then
-         self.ladderCoro:stop()
-         self.ladderCoro = nil
-         self:stopMoveAndOrientate()
-      end
-      self:setState("climbing_ladder", false)
-      self:setState("climbing_ladder_down", false)
-      self:climb_ladder_finish()
    end
 end
 
@@ -2337,35 +2463,14 @@ function CMainCharacter:tryCancelCooking()
 end
 
 function CMainCharacter:tryCancelConsuming()
-   if self:getState("consuming") then
-      if self.consumeCoro then
-         self.consumeCoro:stop()
-         self.consumeCoro = nil
-      end
-      self:consume_finish()
-      self:setState("consuming", false)
-   end
+   self:setState("consuming", false)
 end
 
+-- we're cancelling reload now in the ai tree, when "reloading" state is false
+--TODO: lookup use cases and consider renaming or inlining the method
+--TODO: we need a way to respond to stateChanged events and the like
 function CMainCharacter:tryCancelReloading()
-   if self:getState("reloading") then
-      local currentWeapon = self:getWeaponSlotItem()
-      if currentWeapon then currentWeapon:stopSound("reload") end
-      local animations = self:getCurrentReloadAnimations()
-      if type(animations) == "table" then
-         for _,anim in ipairs(animations) do
-            self:stopAction(anim)
-         end
-      elseif animations then
-         self:stopAction(animations)
-      end
-
-      if self.reloadCoro then
-         self.reloadCoro:stop()
-         self.reloadCoro = nil
-      end
-      self:reload_finish()
-   end
+   self:setState("reloading", false)
 end
 
 function CMainCharacter:OnInventoryChange(event)
@@ -2375,11 +2480,13 @@ function CMainCharacter:OnInventoryChange(event)
       end
    elseif event.eventType == "ItemGiven" then
       questSystem:fireEvent("give", event.item:getItemName())
-   elseif event.eventType == "ItemEquipped" then
-      --TODO:FIXME: Think of a more official and universal way to update ammo
-      if event.item:isRangedWeapon() and not self.setupInProgress then --Can't update ammo like that upon game load, cause the ammo item might not be there yet
-         event.item:updateAmmoCount()
-      end
+   end
+end
+
+function CMainCharacter:OnItemEquip(event)
+   CPlayer.OnItemEquip(self, event)
+
+   if event.eventType == "ItemEquipped" then
       if event.item:getAttireType() == "gadget" then
          gameplayUI.hotbarUI:setItemToHotbar(11, event.item)
       elseif event.item:getEquippedSlot() == self:getWeaponSlot() and getGameOption("autoReload") then
@@ -2387,7 +2494,17 @@ function CMainCharacter:OnInventoryChange(event)
             self:tryReload()
          end
       end
-   elseif event.eventType == "ItemUnequipped" then
+      --TODO:FIXME: Think of a more official and universal way to update ammo
+      if event.item:isRangedWeapon() and not self.setupInProgress then --Can't update ammo like that upon game load, cause the ammo item might not be there yet
+         event.item:updateAmmoCount()
+      end
+   end
+end
+
+function CMainCharacter:OnItemUnequip(event)
+   CPlayer.OnItemUnequip(self, event)
+
+   if event.eventType == "ItemUnequipped" then
       if event.item:getAttireType() == "hat" then
          self:wearHair()
       elseif event.item:getAttireType() == "gadget" then
@@ -2395,7 +2512,6 @@ function CMainCharacter:OnInventoryChange(event)
       end
    end
 end
-
 -- ---------------------------------------------------------------------------------------
 -- Dialogs' rootine
 -- ---------------------------------------------------------------------------------------
@@ -2458,7 +2574,10 @@ end
 
 function CMainCharacter:onStopDialog()
    self:stopTalk()
-   self.animationsManager:stopActionsAndCycles()
+end
+
+function CMainCharacter:talking_start()
+   self.animationsManager:playCycle("idle")
 end
 
 function CMainCharacter:updateCamera()
@@ -2486,10 +2605,14 @@ function CMainCharacter:updateCamera()
       end
 
       if TerminalUI.isCursorVisible() then
-         camHeight = 200
+         camHeight = camHeight + 40
          camDist   = 90
          camFov    = 60
          speed     = 0.5
+      elseif self:getState("resting") then
+         camHeight = camHeight - 110
+         camDist = 100
+         speed = 1
       elseif getGlobalParam("inScene") == "start_scene" then
          camHeight = 200
          camDist   = 350
@@ -2558,6 +2681,7 @@ end
 
 function CMainCharacter:stopSwim(swimTrigger)
    self.swimTrigger = nil
+   self:setState("disableInteraction", false)
    self:setState("disableAttack", false)
    self:setState("blockItemUse", false)
    self:setState("disableJump", false)
@@ -2565,17 +2689,11 @@ function CMainCharacter:stopSwim(swimTrigger)
 end
 
 function CMainCharacter:getCurrentMoveType()
-   for _, move in ipairs{"idle", "walk", "run", "sprint"} do
-      if self:getState(move.."Mode") then
-         return move
-      end
-   end
-   log("ERROR: CMainCharacter:getCurrentMoveType couldn't properly detect current move type")
-   return "idle" -- just to be safe
+   return self:getMovementParameters().moveType
 end
 
 function CMainCharacter:getCurrentReloadAnimations()
-   local default = "device__left"
+   local default = "reload__pistol_aim_idle"
    local gun = self:getWeaponSlotItem()
    local reloadAll = self.animations.reload
    local moveType = self:getCurrentMoveType()
@@ -2608,7 +2726,6 @@ function CMainCharacter:tryReload()
          gameplayUI.annoyingHintUI:completeTask("reloading")
          self:startHipFire(0.1)
          self:setState("reloading", true)
-         self:reload_running()
          return true
       end
    end
@@ -2616,57 +2733,64 @@ function CMainCharacter:tryReload()
 end
 
 function CMainCharacter:reload_running()
-   self.reloadCoro = runTimerCo(function()
-      local weapon = self:getWeaponSlotItem()
-      self:setState("disableAttack", false)
-      self:setState("disableInteraction", true)
-      self:setState("blockItemUse", true)
-      self:setHeadLookingAllowed(false)
+   local weapon = self:getWeaponSlotItem()
+   self:setState("disableAttack", false)
+   self:setState("disableInteraction", true)
+   self:setState("blockItemUse", true)
+   self:setHeadLookingAllowed(false)
 
-      local animations = self:getCurrentReloadAnimations()
-      --Looped reloading one ammo at a time
-      if weapon:getReloadAnimations() == "shotgun1" or weapon:getReloadAnimations() == "carbine" then
-         self.animationsManager:playAction(animations[1], 0.3, 0)
+   local function playAction(...)
+      self:setBBVar("lastReloadAnimation", (...))
+      return self.animationsManager:playAction(...)
+   end
 
-         coro.waitAnimationEventIn(self, animations[1], "startloop")
+   local animations = self:getCurrentReloadAnimations()
+   --Looped reloading one ammo at a time
+   if weapon:getReloadAnimations() == "shotgun1" or weapon:getReloadAnimations() == "carbine" then
+      playAction(animations[1], 0.3, 0)
 
-         local ammoAvailable = weapon:getAvailableAmmoCount() - weapon.magazine
-         while ammoAvailable > 0 and weapon.magazine < weapon.magazineMax do
-            weapon:playSound("reload_loop", true)
+      coro.waitAnimationEventIn(self, animations[1], "startloop")
 
-            self.animationsManager:playAction(animations[2], 0, 0)
+      local ammoAvailable = weapon:getAvailableAmmoCount() - weapon.magazine
+      while ammoAvailable > 0 and weapon.magazine < weapon.magazineMax do
+         weapon:playSound("reload_loop", true)
 
-            coro.waitAnimationEventIn(self, animations[2], "reload")
+         playAction(animations[2], 0, 0)
 
-            weapon:OnLoadGun()
-            ImmersiveUI.triggerUI("weapon")
-
-            ammoAvailable = weapon:getAvailableAmmoCount() - weapon.magazine
-         end
-
-         weapon:playSound("reload_out", true)
-         self:setState("waitReloadEnd", true)
-         self.animationsManager:playAction(animations[3], 0)
-
-         coro.waitAnimationEnd(self, animations[3])
-      else --Normal single animated reloading
-         weapon:playSound("reload", true)
-         self.animationsManager:playAction(animations)
-
-         coro.waitAnimationEventIn(self, animations, "reload")
+         coro.waitAnimationEventIn(self, animations[2], "reload")
 
          weapon:OnLoadGun()
          ImmersiveUI.triggerUI("weapon")
 
-         coro.waitAnimationEnd(self, animations)
+         ammoAvailable = weapon:getAvailableAmmoCount() - weapon.magazine
       end
 
-      self.reloadCoro = nil
-      self:reload_finish()
-   end)
+      weapon:playSound("reload_out", true)
+      self:setState("waitReloadEnd", true)
+      playAction(animations[3], 0)
+
+      coro.waitAnimationEnd(self, animations[3])
+   else --Normal single animated reloading
+      weapon:playSound("reload", true)
+      playAction(animations)
+
+      coro.waitAnimationEventIn(self, animations, "reload")
+
+      weapon:OnLoadGun()
+      ImmersiveUI.triggerUI("weapon")
+
+      coro.waitAnimationEnd(self, animations)
+   end
+   self:setBBVar("lastReloadAnimation", nil)
 end
 
 function CMainCharacter:reload_finish()
+   local lastReloadAnimation = self:getBBVar("lastReloadAnimation")
+   if lastReloadAnimation then
+      self.animationsManager:stopAction(lastReloadAnimation)
+      local currentWeapon = self:getWeaponSlotItem()
+      if currentWeapon then currentWeapon:stopSound("reload") end
+   end
    self:setState("reloading", false)
    self:setState("blockItemUse", false)
    self:setState("waitReloadEnd", false)
@@ -2719,7 +2843,9 @@ function CMainCharacter:runScanWave(item, animated)
          return
       end
 
-      local anim = self.animations.scanAnim
+      local moveType, dirType = self:getCurrentMoveType(), self:getMovementParameters().dirType
+      local animationSet = item:getAnimations()
+      local anim = self:getScanAnimations(moveType, dirType, animationSet)
       local delayIn
       local delayOut
       local itemName = item:getItemName()
@@ -2765,12 +2891,10 @@ function CMainCharacter:runScanWave(item, animated)
                equipItemForPlayer("scanner_broken.itm", "gadget", false)
                gameplayUI.hotbarUI:setItemToHotbarByName(11, "scanner_broken.itm")
 
-               local scanWaveSoundBreaking = self:createAspect("scan_breaks.wav")
+               local scanWaveSoundBreaking = self:createAspect("Play_scan_breaks")
                scanWaveSoundBreaking:getPose():setParent(self:getPose())
                scanWaveSoundBreaking:getPose():resetLocalPose()
                scanWaveSoundBreaking:getPose():setLocalPos({x=0,y=100,z=0})
-               scanWaveSoundBreaking:setLoop(false)
-               scanWaveSoundBreaking:setVolume(0.15)
                scanWaveSoundBreaking:setDistance(1000)
                scanWaveSoundBreaking:play()
 
@@ -2811,22 +2935,21 @@ function CMainCharacter:runScanWave(item, animated)
       self.scanWave:getPose():setScale({x=baseRadius,y=baseRadius,z=baseRadius})
       self.scanWave:setVisible(true)
 
-      self.scanWaveTimer = runTimerExt(1/60, {obj=self, initRadius=baseRadius},
-         function (params)
-            if params.obj.scanWaveTimer then
-               local radius = params.initRadius + params.obj.scanWaveTimer:getTimeDuration() * (scanRadius-params.initRadius)
+      self.scanWaveTimer = runTimerAdv(1/60, 1,
+         function ()
+            if self.scanWaveTimer then
+               local radius = baseRadius + self.scanWaveTimer:getTimeDuration() * (scanRadius-baseRadius)
 
-               params.obj.scanWave:getPose():setScale({x=radius/100,y=radius/100,z=radius/100})
-               params.obj:setHighlightsRadius(radius)
+               self.scanWave:getPose():setScale({x=radius/100,y=radius/100,z=radius/100})
+               self:setHighlightsRadius(radius)
 
-               if params.obj.scanWaveTimer and params.obj.scanWaveTimer:getTimeLeft() == 0 then
-                  params.obj.scanWave:setVisible(false)
-                  params.obj:setHighlightsRadius(0)
-                  params.obj.scanWaveTimer = nil
+               if self.scanWaveTimer and self.scanWaveTimer:getTimeLeft() == 0 then
+                  self.scanWave:setVisible(false)
+                  self:setHighlightsRadius(0)
+                  self.scanWaveTimer = nil
                end
             end
-         end,
-      1)
+         end)
       self.scanCoro = nil
    end)
 end
@@ -2843,8 +2966,12 @@ function CMainCharacter:hit(damage, charAttacker, direction)
 
    local currentHealth = self:getStatPercent("health")
    self:tryCancelActions(true)
+   if self:getState("climbing_ladder") or self:getState("climbing_ladder_down") then
+      self.soundManager:OnEventIn("hurt2")
+   end
    if currentHealth < 20 or (prevHealthPercent - currentHealth) >= 10 then
-      self:tryCancelLadder()
+      self:setState("climbing_ladder", false)
+      self:setState("climbing_ladder_down", false)
    end
 end
 
@@ -2919,7 +3046,7 @@ function CMainCharacter:addLevels(value, silent)
       gameplayUI.characterUI:setStatUpgradeButtonsDisabled(false)
 
       if not silent then
-         self:playSoundScheduled("game_lvlup.wav", 10)
+         self:playSoundScheduled("Play_game_lvlup", 10)
          gameplayUI:showInfoTextEx("Reached level " .. self.level, "major", "")
       end
    end
@@ -2947,7 +3074,6 @@ function CMainCharacter:OnSaveState(state)
    --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
    state.weaponXP = CritPartialMod:returnhits()
    --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
-
    state.stats = self:serializeStats()
 
    local index = 1
@@ -2959,7 +3085,14 @@ function CMainCharacter:OnSaveState(state)
          index = index + 1
       end
    end
+   --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+   if state.weaponXP then
+      for k,v in pairs (state.weaponXP) do
+         CritPartialMod:loadhits(k,v)
+      end
 
+   end
+   --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    state.inventory = self:getInventory():serialize()
    state.attributePoints = self.attributePoints
    state.assignedAttributes = self.assignedAttributes
@@ -3015,14 +3148,7 @@ function CMainCharacter:OnLoadState(state)
    if state.experience then
       self:addExp(state.experience, true)
    end
-   --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-   if state.weaponXP then
-      for k,v in pairs (state.weaponXP) do
-         CritPartialMod:loadhits(k,v)
-      end
 
-   end
-   --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    --Status effects, attributes and items should be loaded before stats as their bonuses affect stats' clamping values.
    if state.statusEffects then
       for _,effectState in ipairs(state.statusEffects) do

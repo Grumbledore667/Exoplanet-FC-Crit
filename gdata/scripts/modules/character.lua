@@ -7,7 +7,6 @@ local CNotificationCenter = (require "notificationCenter").CNotificationCenter
 local CEventManager = require "eventManager"
 local CAnimationsManager = (require "animationsManager").CAnimationsManager
 local CSoundManager = (require "soundManager").CSoundManager
-local CActionsScheduler = (require "actionsScheduler").CActionsScheduler
 local CInteractable = require "mixins.interactable"
 local CDestroyable = require "mixins.destroyable"
 --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
@@ -56,60 +55,53 @@ local CCharacter = oo.class({
    spawnCorpseDummy = true,
    inventoryType      = "slotted",
    highlightingAllowed = false,
+
 }, _rootCharacter, CInteractable, CDestroyable)
 
-function CCharacter:getDescriptiveName()
-   local name = self:getName()
-   if not self:isManaged() then
-      if self.installer then
-         return string.format("'%s, spawn of %s'", self:getScriptClass(), self.installer:getName())
-      end
+---First thing that gets called upon creation
+--OnCreate():
+--   loadDynamicParameters()
+--   init()
+--      loadParameters()
+--         getDefaultParameters()
+function CCharacter:OnCreate(params)
+   self.safePosition = self:getPose():getPos()
+   getmetatable(self)["__tostring"] = function(t) return t:getDescriptiveName() end
+
+   if params then
+      self:loadDynamicParameters(params)
    end
-   return name
+   CDestroyable.OnCreate(self)
+
+   CInteractable.OnCreate(self)
+   self.interactor:setRaycastRadius(300)
+   self.interactor:setRaycastActive(false)
+
+   if self.inventoryType then
+      ---@type CInventoryBase | CInventorySlotted | CInventoryPlayer | CInventoryTurret
+      self.inventory = CInventories[self.inventoryType]{}
+      self.inventory:init(self)
+      self:getInventory():subscribeOnChange(partial(self.OnInventoryChange, self))
+      self:getInventory():subscribeOnChange(partial(self.OnItemEquip, self))
+      self:getInventory():subscribeOnChange(partial(self.OnItemUnequip, self))
+   end
+
+   self:init()
+
+   self:resetTarget()
+   self:stopMove()
+
+   self:setOrientationSpeed(self.parameters.orientationSpeed or 300)
 end
 
-function CCharacter:isManaged()
-   return self:getName() ~= "__unmanaged_npc" and self.installer == nil
+---First parameters loading from installer/spawn
+function CCharacter:loadDynamicParameters(params)
+   if params.installer then
+      self:setInstaller(params.installer)
+   end
 end
 
-function CCharacter:loadParameters()
-   self.parameters = clone(self:getDefaultParameters(), self.parameters)
-
-   self:setHeadLookingAllowed(loadParam(self, "headLooking", true))
-   self.headLookingLimits = {x=30, y=50, z=0}
-
-   self.stats = {}
-   self.regeneratingStats = {}
-   local healthMax = loadParam(self, "healthMax", 100)
-   local stats = {
-      armor     = {baseValue = 0},
-      healthMax = {baseValue = healthMax, min = 1},
-      health    = {value = healthMax, min = 0, max = "healthMax", regen = 0},
-   }
-   self:initializeStats(stats)
-
-   self.style = { body = {}, attachments = {}, textures = {} }
-   self.hasNoEnemiesOverride = loadParam(self, "hasNoEnemiesOverride")
-   self.attitudeToMainCharacter = loadParam(self, "attitudeToMainCharacter")
-end
-
-function CCharacter:getDefaultParameters()
-   local parameters = {}
-   parameters.orientationSpeed = 300
-   parameters.maxLandingSpeed  = 750
-   parameters.weaponSlotId     = 1
-   parameters.zoneSize         = 1000 -- 10 meters
-
-   parameters.viewDist         = 2000  -- 20 meters
-   parameters.backViewDist     = 1000  -- 10 meters
-   parameters.viewAngle        = 180
-
-   parameters.attackDist       = 1000 -- 10 meters
-   parameters.attackAngle      = 120
-
-   return parameters
-end
-
+---Init components, setup timers and call loadParameters
 function CCharacter:init()
    self.notificationCenter = CNotificationCenter{ owner = self }
    self.notificationCenter:init()
@@ -118,8 +110,6 @@ function CCharacter:init()
 
    self.statusEffectsManager = CStatusEffectsManager{ owner = self }
    self.statusEffectsManager:init()
-
-   self.actionsScheduler = CActionsScheduler{ owner = self }
 
    self.animationsManager = CAnimationsManager{ owner = self }
    self.animationsManager:init()
@@ -160,6 +150,46 @@ function CCharacter:init()
    self:initLookAtData()
 end
 
+---Second and main parameters loading
+function CCharacter:loadParameters()
+   self.parameters = clone(self:getDefaultParameters(), self.parameters)
+
+   self:setHeadLookingAllowed(loadParam(self, "headLooking", true))
+   self.headLookingLimits = {x=30, y=50, z=0}
+
+   self.stats = {}
+   self.regeneratingStats = {}
+   local healthMax = loadParam(self, "healthMax", 100)
+   local stats = {
+      armor     = {baseValue = 0},
+      healthMax = {baseValue = healthMax, min = 1},
+      health    = {value = healthMax, min = 0, max = "healthMax", regen = 0},
+   }
+   self:initializeStats(stats)
+
+   self.style = { body = {}, attachments = {}, textures = {} }
+   self.hasNoEnemiesOverride = loadParam(self, "hasNoEnemiesOverride")
+   self.attitudeToMainCharacter = loadParam(self, "attitudeToMainCharacter")
+end
+
+---Default parameters table "getter"
+function CCharacter:getDefaultParameters()
+   local parameters = {}
+   parameters.orientationSpeed = 300
+   parameters.maxLandingSpeed  = 750
+   parameters.weaponSlotId     = 1
+   parameters.zoneSize         = 1000 -- 10 meters
+
+   parameters.viewDist         = 2000  -- 20 meters
+   parameters.backViewDist     = 1000  -- 10 meters
+   parameters.viewAngle        = 180
+
+   parameters.attackDist       = 1000 -- 10 meters
+   parameters.attackAngle      = 120
+
+   return parameters
+end
+
 function CCharacter:initLookAtData()
    self.lookAtFactor = 0
    self.headBonePose = self:findBonePose("Head")
@@ -172,16 +202,10 @@ end
 function CCharacter:setupTimers(freq)
    self:stopTimers()
 
-   self.actionsScheduler.timer = runTimer(freq, self.actionsScheduler, self.actionsScheduler.OnIdle, true)
    self.senseScheduler.timer   = runTimer(freq, self.senseScheduler, self.senseScheduler.OnIdle, true)
 end
 
 function CCharacter:stopTimers()
-   if self.actionsScheduler.timer then
-      self.actionsScheduler.timer:stop()
-      self.actionsScheduler.timer = nil
-   end
-
    if self.senseScheduler.timer then
       self.senseScheduler.timer:stop()
       self.senseScheduler.timer = nil
@@ -202,40 +226,30 @@ function CCharacter:deleteBehaviorTree()
    end
 end
 
-function CCharacter:loadDynamicParameters(params)
-   if params.installer then
-      self:setInstaller(params.installer)
+function CCharacter:requestBehaviorStart(name)
+   if self.BT then
+      self.BT:requestBehaviorStart(name)
    end
 end
 
-function CCharacter:OnCreate(params)
-   self.safePosition = self:getPose():getPos()
-   getmetatable(self)["__tostring"] = function(t) return t:getDescriptiveName() end
-
-   if params then
-      self:loadDynamicParameters(params)
+function CCharacter:requestBehaviorStop(name)
+   if self.BT then
+      self.BT:requestBehaviorStop(name)
    end
-   CDestroyable.OnCreate(self)
+end
 
-   CInteractable.OnCreate(self)
-   self.interactor:setRaycastRadius(300)
-   self.interactor:setRaycastActive(false)
-
-   if self.inventoryType then
-      ---@type CInventoryBase | CInventorySlotted | CInventoryPlayer | CInventoryTurret
-      self.inventory = CInventories[self.inventoryType]{}
-      self.inventory:init(self)
-      self:getInventory():subscribeOnChange(partial(self.OnInventoryChange, self))
-      self:getInventory():subscribeOnChange(partial(self.OnItemEquip, self))
-      self:getInventory():subscribeOnChange(partial(self.OnItemUnequip, self))
+function CCharacter:getDescriptiveName()
+   local name = self:getName()
+   if not self:isManaged() then
+      if self.installer then
+         return string.format("'%s, spawn of %s'", self:getScriptClass(), self.installer:getName())
+      end
    end
+   return name
+end
 
-   self:init()
-
-   self:resetTarget()
-   self:stopMove()
-
-   self:setOrientationSpeed(self.parameters.orientationSpeed or 300)
+function CCharacter:isManaged()
+   return self:getName() ~= "__unmanaged_npc" and self.installer == nil
 end
 
 function CCharacter:getOrientationGlobal()
@@ -293,6 +307,22 @@ function CCharacter:OnSlideBegin()
 end
 
 function CCharacter:OnSlideEnd()
+end
+
+function CCharacter:OnStuckBegin()
+   self:setState("isStuck", true)
+end
+
+function CCharacter:OnStuckEnd()
+   self:setState("isStuck", false)
+end
+
+function CCharacter:OnTouchCharacter(obj)
+   self:setState("isTouchingCharacter", true)
+end
+
+function CCharacter:OnUntouchCharacter(obj)
+   self:setState("isTouchingCharacter", false)
 end
 
 function CCharacter:OnMoveAndOrientateStop()
@@ -365,7 +395,6 @@ function CCharacter:OnHit(params)
    itemName = params.impactor:getItemName()
    damageValue = params.impactor:getDamage()
 
-
    local isPlayerAttacker = getPlayer() == charAttacker
 
    --TODO:FIXME: A projectile from a destroyed attacker won't hit and it probably should
@@ -379,25 +408,25 @@ function CCharacter:OnHit(params)
    -- logic, damage increase and reduction etc
    damageValue = damageValue * getGlobalParam("dmgMultiplier")
    if isPlayerAttacker then
-       --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-       local bulletsinshot = nil
-       --check if melee or ranged
-       if params.impactor.bulletsInShot == nil then
-           bulletsinshot = 1
-       else
-           bulletsinshot = params.impactor.bulletsInShot
-       end
-       damageValue = damageValue * CritPartialMod:playershot(itemName, bulletsinshot)
-       CritPartialMod:addhit(itemName)
-       if CritPartialMod.color ~= "[colour='FFFFFFFF']" then
-           CritPartialMod.impactPos = projectPointToScreen(params.impactPos)
-           gameplayUI:showInfoTextEx(CritPartialMod.color .. tostring(round(damageValue, 0)), "hit", "")
-       end
-       --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+      --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+      local bulletsinshot = nil
+      --check if melee or ranged
+      if params.impactor.bulletsInShot == nil then
+         bulletsinshot = 1
+      else
+         bulletsinshot = params.impactor.bulletsInShot
+      end
+      damageValue = damageValue * CritPartialMod:playershot(itemName, bulletsinshot)
+      CritPartialMod:addhit(itemName)
+      if CritPartialMod.color ~= "[colour='FFFFFFFF']" then
+         CritPartialMod.impactPos = projectPointToScreen(params.impactPos)
+         gameplayUI:showInfoTextEx(CritPartialMod.color .. tostring(round(damageValue, 0)), "hit", "")
+      end
+      --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    elseif params.target == getPlayer() then
-       --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-       damageValue = damageValue * CritPartialMod:npcshot(itemName)
-       --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+      --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+      damageValue = damageValue * CritPartialMod:npcshot(itemName)
+      --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    end
 
    if self:getStatusEffectsManager():hasEffectName("scampShock") and itemName == "beacon_light.wpn" then
@@ -439,39 +468,22 @@ function CCharacter:OnHit(params)
 end
 
 function CCharacter:OnTriggerEnter(trigger)
-   --log("CCharacter:OnTriggerEnter " .. trigger:getName())
+   self.triggers[trigger] = true
+   self.triggersVisited[trigger] = true
 
-   self.eventManager:postEvent("OnTriggerEnter", trigger)
-   self.eventManager:postEvent("coroutineEvent", {event="OnTriggerEnter",obj=trigger})
-
-   self.triggers[#self.triggers + 1] = trigger
-
-   if not self:isTriggerVisited(trigger) then
-      if trigger.isEnabled and trigger:isEnabled() then
-         self.triggersVisited[#self.triggersVisited + 1] = trigger
-      else
-         self.triggersVisited[#self.triggersVisited + 1] = trigger
-      end
+   if trigger.isEnabled and trigger:isEnabled() then
+      self.eventManager:postEvent("OnTriggerEnter", trigger)
+      self.eventManager:postEvent("coroutineEvent", {event="OnTriggerEnter",obj=trigger})
    end
-
-   --log("cnt = " .. tostring(#self.triggers))
-   --log("is in trigger = " .. tostring(self:isInTrigger(Trigger_0)))
 end
 
 function CCharacter:OnTriggerLeave(trigger)
-   --log("CCharacter:OnTriggerLeave " .. trigger:getName())
+   self.triggers[trigger] = nil
 
-   self.eventManager:postEvent("OnTriggerLeave", trigger)
-   self.eventManager:postEvent("coroutineEvent", {event="OnTriggerLeave",obj=trigger})
-
-   for i=1,#self.triggers do
-      if self.triggers[i] == trigger then
-         table.remove(self.triggers, i)
-         break
-      end
+   if trigger.isEnabled and trigger:isEnabled() then
+      self.eventManager:postEvent("OnTriggerLeave", trigger)
+      self.eventManager:postEvent("coroutineEvent", {event="OnTriggerLeave",obj=trigger})
    end
-
-   --log("cnt = " .. tostring(#self.triggers))
 end
 
 function CCharacter:OnSenseBegin()
@@ -486,12 +498,6 @@ end
 
 function CCharacter:OnSenseOutOther(char)
    self.senseScheduler:OnSenseOutOther(char)
-end
-
-function CCharacter:OnStuckIn()
-end
-
-function CCharacter:OnStuckOut()
 end
 
 function CCharacter:OnFeelIn(char)
@@ -560,8 +566,8 @@ function CCharacter:OnItemDeactivateSafe(item)
 end
 
 function CCharacter:onStepEventIn()
-   for _, v in pairs(self.triggers) do
-      if v.metalSteps then
+   for trigger in pairs(self.triggers) do
+      if trigger.metalSteps then
          self.soundManager:OnEventIn("step_metal")
          return
       end
@@ -570,35 +576,23 @@ function CCharacter:onStepEventIn()
 end
 
 function CCharacter:isInTrigger(trigger)
-   local object = trigger
+   local obj = trigger
 
    if type(trigger) == "string" then
-      object = getObj(trigger)
+      obj = getObj(trigger)
    end
 
-   for i=1,#self.triggers do
-      if self.triggers[i] == object then
-         return true
-      end
-   end
-
-   return false
+   return self.triggers[obj] == true
 end
 
 function CCharacter:isTriggerVisited(trigger)
-   local object = trigger
+   local obj = trigger
 
    if type(trigger) == "string" then
-      object = getObj(trigger)
+      obj = getObj(trigger)
    end
 
-   for i=1,#self.triggersVisited do
-      if self.triggersVisited[i] == object then
-         return true
-      end
-   end
-
-   return false
+   return self.triggersVisited[obj] == true
 end
 
 function CCharacter:setImmortality(state)
@@ -801,17 +795,10 @@ function CCharacter:playPrioritySound(actionName)
    self.soundManager:playPrioritySound(actionName)
 end
 
-function CCharacter:playActionSoundLooped(actionName)
-   self.soundManager:playActionSoundLooped(actionName)
-end
-
 function CCharacter:playSoundScheduled(soundName, channel)
    self.soundManager:playSoundScheduled(soundName, channel)
 end
 
-function CCharacter:stopLastLoopedSound()
-   self.soundManager:stopLastLoopedSound()
-end
 
 function CCharacter:setSoundParameters(sound, volume, speed, distance)
    if volume ~= nil then
@@ -823,11 +810,6 @@ function CCharacter:setSoundParameters(sound, volume, speed, distance)
    if distance ~= nil then
       self:soundDistance(sound, distance)
    end
-end
-
-function CCharacter:loopSound(sound)
-   self:soundLoop(sound, true)
-   self:playSound(sound)
 end
 
 -- Blackboard
@@ -992,14 +974,14 @@ end
 
 ---Spend a required amount from a stat if it has enough or deplete it anyway
 ---@param statName string
----@param value dynamic a number or string name of another stat
+---@param value number | string a number or string name of another stat, should be negative to actually reduce the amount
 ---@param deplete boolean
 function CCharacter:spendStat(statName, value, deplete)
    if not self:hasStatByName(statName) or not value then return false end
    if type(value) == "string" then
       value = self.stats[value]:getValue()
    end
-   if self.stats[statName]:getValue() >= value or deplete then
+   if self.stats[statName]:getValue() >= -value or deplete then
       self:changeStatCount(statName, value)
       return true
    else
@@ -1030,21 +1012,36 @@ function CCharacter:subscribeOnDeath(func, obj)
    self.subscribersOnDeath[#self.subscribersOnDeath+1] = { ["func"] = func, ["obj"] = obj, }
 end
 
--- actions
+---External animated damage function if damage is allowed and character is alive
 function CCharacter:hit(damage, charAttacker, direction)
    if not self:isDamageAllowed(charAttacker) or self:getState("dead") then return end
 
-   local armor = self:getStatCount("armor")
-   local armorCap = getGlobalParam("armorCap") or 60 --having max armor will completely block all damage
-   damage = math.floor(damage - (damage*armor/armorCap) - (armor * 0.1))
+   damage = self:recalculateDamage(damage, charAttacker, direction)
 
-   if damage > 0 then
-      self:changeStatCount("health", -damage)
-
+   if self:takeDamage(damage, charAttacker, direction) > 0 then
       if self:getStatCount("health") > 0 then
          self:animatedEvent("hit", direction)
       end
    end
+end
+
+---Affect damage numbers with armor and etc.
+function CCharacter:recalculateDamage(damage, charAttacker, direction)
+   local armor = self:getStatCount("armor")
+   local armorCap = getGlobalParam("armorCap") or 60 --having max armor will completely block all damage
+   damage = math.floor(damage - (damage*armor/armorCap) - (armor * 0.1))
+   return damage
+end
+
+---Reduces HP if the character is alive
+function CCharacter:takeDamage(damage, charAttacker, direction)
+   if self:getState("dead") then return end
+
+   if damage > 0 then
+      self:changeStatCount("health", -damage)
+   end
+
+   return damage
 end
 
 function CCharacter:die__()
@@ -1080,9 +1077,29 @@ function CCharacter:playDeathAnimation(animation)
    if not self:addAnimationEvent(animation, "end", 999, 999) then
       log(string.format("WARNING: %s %s %s couldn't create death animation event", self:getScriptClass(), self:getName(), self:getPrefabName()))
    end
+
+   if self.corpseDummy then
+      self.corpseDummy:setActive(false)
+   end
+
    self.animationsManager:stopActionsAndCycles()
    self.animationsManager:playAction(animation, nil, nil, true)
-   self.animationsManager:subscribeAnimationEventIn(animation, "end", self.setActive, self, false)
+   self.animationsManager:subscribeAnimationEventIn(animation, "end", function()
+      if self:isInAir() then
+         self.eventManager:subscribeToEvent("OnLanding", function()
+            runTimerAdv(1, false, self.deactivateAfterDeath, self)
+         end)
+      else
+         runTimerAdv(1, false, self.deactivateAfterDeath, self)
+      end
+   end)
+end
+
+function CCharacter:deactivateAfterDeath()
+   self:setActive(false)
+   if self.corpseDummy then
+      self.corpseDummy:setActive(true)
+   end
 end
 
 function CCharacter:stopMove()
@@ -1113,34 +1130,111 @@ function CCharacter:setupAppearance(styleName)
    if not styleName then return end
 
    local style = Appearance.getStyleFor(styleName, self) or Appearance.getDefaultStyleFor(self)
+   self:setupStyle(style, styleName)
+end
 
+function CCharacter:setupStyle(style, styleName)
    if not style then return end
-
    self.styleName = styleName
 
+   --clear prev attachments
+   for _, attachment in pairs(self.style.attachments) do
+      hlp.safeDestroyEntity(attachment.entity)
+      attachment.entity = nil
+   end
+
+   self.style.body = tablex.deepcopy(style.body)
+   self.style.textures = tablex.deepcopy(style.textures) or {}
+   self.style.attachments = tablex.deepcopy(style.attachments) or {}
+
+   self:updateAppearance()
+end
+
+function CCharacter:updateAppearance()
+   --Setup submeshes
    local body = {}
-   for i=1,#style.body do
-      for j=1,#style.body[i] do
-         body[#body+1] = style.body[i][j]
+   for i=1,#self.style.body do
+      for j=1,#self.style.body[i] do
+         body[#body+1] = self.style.body[i][j]
       end
    end
    self:setVisibleMeshesOnly(body)
-   self.style.body = style.body
 
-   --clear prev attachments
-   for _,charAttach in pairs(self.style.attachments) do
-      hlp.safeDestroyEntity(charAttach.entity)
-   end
-   self.style.attachments = {}
-   if style.attachments then
-      self:setupAccessories(style.attachments)
-   end
+   self:setupMeshTextures()
 
-   if style.textures then
-      for meshName,textureName in pairs(style.textures) do
+   self:setupAttachments()
+end
+
+function CCharacter:setupMeshTextures()
+   if self.style.textures then
+      for meshName,textureName in pairs(self.style.textures) do
          hlp.setTextureAndNormalMap(self, 0, textureName, meshName)
       end
-      self.style.textures = style.textures
+   end
+end
+
+function CCharacter:setupAttachments()
+   local destroyHair = false
+   for _, attachment in pairs(self.style.attachments) do
+      self:setupAttachment(attachment)
+      if attachment.name:find("hat") or attachment.name:find("turban") or attachment.name:find("mask") or attachment.name:find("helmet") then
+         destroyHair = true
+      end
+   end
+   if destroyHair then
+      self:destroyHair()
+   end
+end
+
+function CCharacter:setupAttachment(attachment)
+   local entity = attachment.entity or getScene():createEntity(attachment.name, "")
+   entity:getPose():setParent(self:getBonePose(attachment.bone))
+   entity:getPose():resetLocalPose()
+   if self:isDisabled() then
+      entity:setVisible(false)
+   end
+   if attachment.pos then
+      entity:getPose():setLocalPos(attachment.pos)
+   end
+   if attachment.rot then
+      entity:getPose():setLocalRot(attachment.rot)
+   end
+   if attachment.scale then
+      entity:getPose():setLocalScale(attachment.scale)
+   end
+   if attachment.texture then
+      hlp.setTextureAndNormalMap(entity, 0, attachment.texture)
+   end
+   attachment.entity = entity
+end
+
+function CCharacter:addAttachments(attachmentsTable)
+   for _, attachData in pairs(attachmentsTable) do
+      local attachment = tablex.deepcopy(attachData)
+      table.insert(self.style.attachments, attachment)
+   end
+   self:setupAttachments()
+end
+
+function CCharacter:removeAttachments(t)
+   if not t then return end
+   for _, removeAttachment in ipairs(t) do
+      for index, charAttachment in ipairs(self.style.attachments) do
+         if removeAttachment.name == charAttachment.name then
+            hlp.safeDestroyEntity(charAttachment.entity)
+            table.remove(self.style.attachments, index)
+            break
+         end
+      end
+   end
+end
+
+function CCharacter:destroyHair()
+   for _, attachment in pairs(self.style.attachments) do
+      if attachment.name:find("hair") then
+         self:removeAttachments({attachment})
+         break
+      end
    end
 end
 
@@ -1161,7 +1255,7 @@ function CCharacter:updateAttire()
          for _,val in pairs(meshes) do
             table.insert(t, val)
             if slotName == "hat" then --For accessories that are done as submeshes
-               self:adjustAttachmentsFor(val)
+               self:destroyHair()
             elseif val:find("legs") and not getKeyByValue(dontRemoveBodyMesh, val) and getKeyByValue(t, "human_male_legs") then
                table.remove(t, getKeyByValue(t, "human_male_legs"))
             elseif val:find("top") and not getKeyByValue(dontRemoveBodyMesh, val) and getKeyByValue(t, "human_male_top") then
@@ -1171,63 +1265,6 @@ function CCharacter:updateAttire()
       end
    end
    self:setVisibleMeshesOnly(t)
-end
-
-function CCharacter:adjustAttachmentsFor(meshName)
-   for _, charAttach in pairs(self.style.attachments) do
-      --destroy hair for selected accessory meshes or destroy existing accessory
-      if (charAttach.name:find("hair")
-            and (meshName:find("hat") or meshName:find("turban") or meshName:find("mask") or meshName:find("helmet")))
-            or charAttach.name == meshName then
-         self:removeAccessories({charAttach})
-         break
-      end
-   end
-end
-
-function CCharacter:setupAccessories(t)
-   if not t then return end
-
-   for _, attach in pairs(t) do
-      if attach.bone == "head_slot" then
-         self:adjustAttachmentsFor(attach.name)
-      end
-
-      local entity = getScene():createEntity(attach.name, "")
-      entity:getPose():setParent(self:getBonePose(attach.bone))
-      entity:getPose():resetLocalPose()
-      if self:isDisabled() then
-         entity:setVisible(false)
-      end
-      if attach.pos then
-         entity:getPose():setLocalPos(attach.pos)
-      end
-      if attach.rot then
-         entity:getPose():setLocalRot(attach.rot)
-      end
-      if attach.scale then
-         entity:getPose():setLocalScale(attach.scale)
-      end
-      if attach.texture then
-         hlp.setTextureAndNormalMap(entity, 0, attach.texture)
-      end
-      local attachment = tablex.deepcopy(attach)
-      attachment.entity = entity
-      table.insert(self.style.attachments, attachment)
-   end
-end
-
-function CCharacter:removeAccessories(t)
-   if not t then return end
-   for _, removeAttachment in ipairs(t) do
-      for index, charAttachment in ipairs(self.style.attachments) do
-         if removeAttachment.name == charAttachment.name then
-            hlp.safeDestroyEntity(charAttachment.entity)
-            table.remove(self.style.attachments, index)
-            break
-         end
-      end
-   end
 end
 
 -- ---------------------------------------------------------------------------------------
@@ -1344,6 +1381,10 @@ function CCharacter:OnIdle()
    if self.immortality ~= "immortal" then
       self:regenerate(getFrameTime())
    end
+   if self.shouldTickAI and self.behaviorTreeTimer then
+      self.behaviorTreeTimer:fire()
+      self.shouldTickAI = false
+   end
 end
 
 function CCharacter:getSafePos()
@@ -1386,7 +1427,7 @@ function CCharacter:OnItemEquip(event)
             end
          end
       elseif event.item:isAccessory() and event.item:getAttachments() then --Sorts out accessories done as submeshes
-         self:setupAccessories(event.item:getAttachments())
+         self:addAttachments(event.item:getAttachments())
       else
          self:updateAttire()
       end
@@ -1399,7 +1440,7 @@ function CCharacter:OnItemUnequip(event)
          event.item:getPose():resetParent()
          event.item:hide()
       elseif event.item:isAccessory() and event.item:getAttachments() then --Sorts out accessories done as submeshes
-         self:removeAccessories(event.item:getAttachments())
+         self:removeAttachments(event.item:getAttachments())
       else
          self:updateAttire()
       end
@@ -1497,12 +1538,11 @@ function CCharacter:playEffect(effectName, time)
          emitter:getPose():resetLocalPos()
          emitter:getPose():setLocalPos  ({x=0,y=self:getCollisionHeight() * 0.5,z=0})
 
-         self.fx.electroShock.sound = self:createAspect("electro_smash.wav")
+         self.fx.electroShock.sound = self:createAspect("Play_electro_smash")
 
          self.fx.electroShock.sound:getPose():setParent(self:getPose())
          self.fx.electroShock.sound:getPose():resetLocalPose()
          self.fx.electroShock.sound:getPose():setLocalPos({x=0,y=100,z=0})
-         self.fx.electroShock.sound:setLoop(false)
          self.fx.electroShock.sound:setDistance(1200)
       end
 

@@ -61,7 +61,7 @@ end
 
 local function cbKeyDown(args)
    local keyArgs = CEGUI.toKeyEventArgs(args)
-   if keyArgs.scancode == 41 then -- `(~)
+   if keyArgs.scancode == getButtonCode("CONSOLE") then
       if not console:getWnd():isVisible() then
          console:getWnd():show()
          console:getWnd():getChild("Command"):activate()
@@ -70,7 +70,7 @@ local function cbKeyDown(args)
          console:getWnd():hide()
       end
       return true
-   elseif keyArgs.scancode == 1 and console:getWnd():isVisible() then -- escape
+   elseif keyArgs.scancode == getButtonCode("ESCAPE") and console:getWnd():isVisible() then
       console:getWnd():hide()
       return true
    end
@@ -167,11 +167,11 @@ function OnInit()
    GUIUtils.widgetSubscribeEventProtected(wndLoadMenu:getChild("LoadButton"), "Clicked", loadGameState)
    GUIUtils.widgetSubscribeEventProtected(wndLoadMenu:getChild("DeleteButton"), "Clicked", deleteGameState)
    GUIUtils.widgetSubscribeEventProtected(wndLoadMenu:getChild("BackButton"), "Clicked", mainMain)
-    --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-    loadmodoptions:init()
-    loadmodoptions.backMenu = wndMainMenu
-    loadmodoptions:createmenubutton()
-    --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+   --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+   loadmodoptions:init()
+   loadmodoptions.backMenu = wndMainMenu
+   loadmodoptions:createmenubutton()
+   --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    --CREDITS
    GUIUtils.widgetSubscribeEventProtected(wndCredits:getChild("BackButton"), "Clicked", mainMain)
 
@@ -192,7 +192,7 @@ function OnInit()
    initSavegames()
    GUIUtils.widgetSubscribeEventProtected(wndLoadMenu:getChild("Savegames"), "MouseDoubleClick", loadGameState)
 
-   trackPlay("menu.ogg", 0)
+   trackPlay("Play_menu", 0)
    wndMainMenu:activate()
 
    local function setMouseCursorImage()
@@ -275,7 +275,7 @@ end
 function newLevel(args)
    addToPersistentTable("isLoadedGame", false)
    commitPersistentTable()
-   trackPlay("loadingscreen_1.ogg", 0)
+   trackPlay("Play_loadingscreen_1", 0)
    changeLocation("\\levels\\WindscreamCanyon\\Windscream_Canyon.swz")
 end
 
@@ -310,11 +310,10 @@ end
 
 function cbMainMenuKeyDown(args)
    local keyArgs = CEGUI.toKeyEventArgs(args)
-   local virtualKeyCode = scanCodeToVirtualKey(keyArgs.scancode, false)
 
    if trySkipLogos() then return end
 
-   if virtualKeyCode == getButtonCode("ESCAPE") then
+   if keyArgs.scancode == getButtonCode("ESCAPE") then
       if GUIUtils.tryDestroyDynamicWindows() then return end
 
       if not console:getWnd():isVisible() then
@@ -325,8 +324,7 @@ end
 
 function cbLoadMenuKeyDown(args)
    local keyArgs = CEGUI.toKeyEventArgs(args)
-   local virtualKeyCode = scanCodeToVirtualKey(keyArgs.scancode, false)
-   if virtualKeyCode == getButtonCode("ESCAPE") then
+   if keyArgs.scancode == getButtonCode("ESCAPE") then
       if GUIUtils.tryDestroyDynamicWindows() then return end
 
       if not console:getWnd():isVisible() then
@@ -337,8 +335,7 @@ end
 
 function cbCreditsKeyDown(args)
    local keyArgs = CEGUI.toKeyEventArgs(args)
-   local virtualKeyCode = scanCodeToVirtualKey(keyArgs.scancode, false)
-   if virtualKeyCode == getButtonCode("ESCAPE") then
+   if keyArgs.scancode == getButtonCode("ESCAPE") then
       mainMain(args)
    end
 end
