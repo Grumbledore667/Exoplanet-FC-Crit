@@ -12,7 +12,9 @@ local GUIUtils      = require "ui.utils"
 
 local hlp = require "helpers"
 local coro = require "coroutines.helpers"
-
+--+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+local CritPartialMod  = require "mods.partialcritmod"
+--+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
 local random = require "random"
 
 local List = require "pl.List"
