@@ -9,12 +9,12 @@ local InstallationData = (require "items.installation").ItemRecipes
 local TerminalUI    = require "ui.terminal"
 local ImmersiveUI = require "ui.immersiveUI"
 local GUIUtils      = require "ui.utils"
-
-local hlp = require "helpers"
-local coro = require "coroutines.helpers"
 --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
 local CritPartialMod  = require "mods.partialcritmod"
 --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+local hlp = require "helpers"
+local coro = require "coroutines.helpers"
+
 local random = require "random"
 
 local List = require "pl.List"
@@ -3087,14 +3087,7 @@ function CMainCharacter:OnSaveState(state)
          index = index + 1
       end
    end
-   --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
-   if state.weaponXP then
-      for k,v in pairs (state.weaponXP) do
-         CritPartialMod:loadhits(k,v)
-      end
 
-   end
-   --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    state.inventory = self:getInventory():serialize()
    state.attributePoints = self.attributePoints
    state.assignedAttributes = self.assignedAttributes
@@ -3165,7 +3158,14 @@ function CMainCharacter:OnLoadState(state)
          end
       end
    end
+   --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
+   if state.weaponXP then
+      for k,v in pairs (state.weaponXP) do
+         CritPartialMod:loadhits(k,v)
+      end
 
+   end
+   --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
    if state.inventory then
       self:getInventory():deserialize(state.inventory)
 

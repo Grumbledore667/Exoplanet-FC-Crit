@@ -274,6 +274,13 @@ function partialcritmod:addhit(item)
     end
 end
 
+function partialcritmod:returnhitamount(item, bullets)
+    if MinMaxChance[item] then
+        local bonus = (MinMaxChance[item].hits/10*bullets)/100
+    return bonus
+    end
+end
+
 function partialcritmod:loadhits(key, value)
     MinMaxChance[key].hits = value
 
