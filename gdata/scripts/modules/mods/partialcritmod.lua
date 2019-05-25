@@ -1,6 +1,7 @@
 local stringx = require "pl.stringx"
 local loadmodoptions = require "mods.modoptions"
 local random = require "random"
+local ItemsData    = require "itemsData"
 local MinMaxChance =
 {
     ["flaregun.gun"] =
@@ -8,84 +9,105 @@ local MinMaxChance =
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["abori_axe.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["axe.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["abori_knife.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["abori_bat.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["cannibal_spoon.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["cleaver.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["family_relic.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["machete.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["pickaxe.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["pipe.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["shovel.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
     ["wodden_bat.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
+    },
+    ["sledgehammer.wpn"] =
+    {
+        MinHitChance = 2,
+        MaxHitChance = 2,
+        hits = 0,
+        Type = "Melee",
     },
     ["hand_to_hand.wpn"] =
     {
         MinHitChance = 2,
         MaxHitChance = 5,
         hits = 0,
+        Type = "Melee",
     },
 
     ["beacon_light.wpn"] =
@@ -93,6 +115,7 @@ local MinMaxChance =
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
 
     ["alien_cactus_bat.wpn"] =
@@ -100,6 +123,7 @@ local MinMaxChance =
         MinHitChance = 2,
         MaxHitChance = 2,
         hits = 0,
+        Type = "Melee",
     },
 
     ["revolver.gun"] =
@@ -107,60 +131,70 @@ local MinMaxChance =
         MinHitChance = 1,
         MaxHitChance = 0,
         hits = 0,
+        Type = "Ranged",
     },
     ["scamp_22.gun"] =
     {
         MinHitChance = 1,
         MaxHitChance = 0,
         hits = 0,
+        Type = "Ranged",
     },
     ["scamp_22_shock.gun"] =
     {
         MinHitChance = 5,
         MaxHitChance = 5,
         hits = 0,
+        Type = "Ranged",
     },
     ["abori_gun_pistol.gun"] =
     {
         MinHitChance = 1,
         MaxHitChance = 0,
         hits = 0,
+        Type = "Ranged",
     },
     ["abori_gun_rifle.gun"] =
     {
         MinHitChance = 1,
         MaxHitChance = 0,
         hits = 0,
+        Type = "Ranged",
     },
     ["abori_gun_mortar.gun"] =
     {
         MinHitChance = 1,
         MaxHitChance = 0,
         hits = 0,
+        Type = "Ranged",
     },
     ["shotgun.gun"] =
     {
         MinHitChance = 10,
         MaxHitChance = 10,
         hits = 0,
+        Type = "Ranged",
     },
     ["howdah.gun"] =
     {
         MinHitChance = 10,
         MaxHitChance = 10,
         hits = 0,
+        Type = "Ranged",
     },
     ["carbine.gun"] =
     {
         MinHitChance = 1,
         MaxHitChance = 0,
         hits = 0,
+        Type = "Ranged",
     },
     ["kabarog_hsg.gun"] =
     {
         MinHitChance = 10,
         MaxHitChance = 10,
         hits = 0,
+        Type = "Ranged",
     },
 }
 
@@ -207,19 +241,18 @@ function partialcritmod:playershot(item, bullets)
         maxhit = MinMaxChance[item].MaxHitChance
         hits = MinMaxChance[item].hits
     end
-    local weaponbonus = (hits/10*bullets)/100
     if partialcritmod.modenabled == true then
         --partial hit
         if partialcritmod.randresult <= (partialcritmod.basevalue + partialcritmod.randmin + minhit) and partialcritmod.partialenabled == true then
             partialcritmod.randresult = nil
-            local modifier = getGlobalParam("dmgOutgoingMultiplier") - (random.random(2,5)/10) + weaponbonus
+            local modifier = getGlobalParam("dmgOutgoingMultiplier") - (random.random(2,5)/10)
             partialcritmod.color = stringx.split(loadmodoptions:retrieveValue("grumbleshitmod.lua", "PartialHit Color"), "]")[1] .. "]"
             return modifier
         end
         --crit hit
         if partialcritmod.randresult >= (partialcritmod.randbase - partialcritmod.basevalue - partialcritmod.randmin - maxhit) and partialcritmod.critenabled == true then
             partialcritmod.randresult = nil
-            local modifier = getGlobalParam("dmgOutgoingMultiplier") + (random.random(2,7)/10) + weaponbonus
+            local modifier = getGlobalParam("dmgOutgoingMultiplier") + (random.random(2,7)/10)
             partialcritmod.color = stringx.split(loadmodoptions:retrieveValue("grumbleshitmod.lua", "CritHit Color"), "]")[1] .. "]"
             return modifier
         end
@@ -228,7 +261,6 @@ function partialcritmod:playershot(item, bullets)
     local modifier = getGlobalParam("dmgOutgoingMultiplier") + weaponbonus
     partialcritmod.color = "[colour='FFFFFFFF']"
     return modifier
-
 end
 
 function partialcritmod:npcshot(item)
@@ -271,20 +303,55 @@ end
 function partialcritmod:addhit(item)
     if MinMaxChance[item] then
         MinMaxChance[item].hits = MinMaxChance[item].hits + 1
+        local gun = getPlayer():getWeaponSlotItem()
+        if partialcritmod:returnType(item) ~= "Melee" then
+            local currentaccuracy = ItemsData.getItemAccuracy(gun:getItemName())
+            gun:setAccuracy(currentaccuracy + partialcritmod:AccuracyBonus(item))
+        else
+            --Preps for melee bonus
+        end
+
     end
 end
 
-function partialcritmod:returnhitamount(item, bullets)
-    if MinMaxChance[item] then
-        local bonus = (MinMaxChance[item].hits/10*bullets)/100
-    return bonus
-    end
+function partialcritmod:hits(item)
+    return MinMaxChance[item].hits
 end
 
 function partialcritmod:loadhits(key, value)
     MinMaxChance[key].hits = value
-
 end
+
+function partialcritmod:nextLevel(level)
+    local exponent = 1.5
+    local baseXP = 10
+    return math.floor(baseXP * (level ^ exponent))
+end
+
+function partialcritmod:currentWPNLevel(hits)
+    local i = 1
+    while(hits >= partialcritmod:nextLevel(i)) do
+        i = i + 1
+    end
+    return i-1
+end
+
+function partialcritmod:AccuracyBonus(item)
+    if MinMaxChance[item] then
+        local bonus = 0
+        if partialcritmod:currentWPNLevel(MinMaxChance[item].hits) > 0 then
+            bonus = 0.0001 * partialcritmod:currentWPNLevel(MinMaxChance[item].hits)
+        else
+            bonus = 0.0000
+        end
+        return bonus
+    end
+end
+
+function partialcritmod:returnType(item)
+    return MinMaxChance[item].Type
+end
+
 
 function settingdefaults()
     partialcritmod.diffvalue = stringx.split(loadmodoptions:retrieveValue("grumbleshitmod.lua", "Difficulty"), "]")[2]
@@ -303,6 +370,12 @@ function settingdefaults()
         partialcritmod.randmin = 20
     end
     partialcritmod.randresult = random.random(0 + difficulty[partialcritmod.diffvalue].MaxChance, partialcritmod.randbase - difficulty[partialcritmod.diffvalue].MinChance)
+end
+
+function partialcritmod:extLogOut(logname, logvalue)
+    log("-------------------------ModLog-------------------------\n\n\n")
+    log(logname..": "..logvalue.."\n\n\n")
+    log("-------------------------EndLog-------------------------")
 end
 
 return partialcritmod

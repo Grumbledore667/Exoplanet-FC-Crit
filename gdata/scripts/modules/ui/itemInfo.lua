@@ -93,16 +93,20 @@ function CItemInfoUI:setup()
 
    local labelText = string.format("%s%s%s", qualityTag, ItemsData.getItemLabel(itemName), gameplayUI.whiteTag)
    self.name:setText(labelText)
-   local bullets = 0
+
    local weaponXp = ""
+
    if ItemsData.isItemWeapon(itemName) then
-      itemType = ItemsData.getItemAnimations(itemName)
-      if ItemsData.getItemBulletsInShot(itemName) == nil then
-         bullets = 1
+      local xpRequired = CritPartialMod:nextLevel(CritPartialMod:currentWPNLevel(CritPartialMod:hits(itemName))+1)-CritPartialMod:hits(itemName)
+      if CritPartialMod:returnType(itemName) ~= "Melee" then
+         weaponXp = string.format("%s%s%d%s%d%s%s%.4f%s", "-------------Usage Stats-------------\n","WeaponLVL: ", CritPartialMod:currentWPNLevel(CritPartialMod:hits(itemName)),"\nXp to next Level: ", xpRequired, "\nAccuracyBonus: +", gameplayUI.damageColorTags.physical, CritPartialMod:AccuracyBonus(itemName), gameplayUI.whiteTag)
       else
-         bullets = ItemsData.getItemBulletsInShot(itemName)
+         weaponXp = string.format("%s%s%d%s%d%s", "-------------Usage Stats-------------\n","WeaponLVL: ", CritPartialMod:currentWPNLevel(CritPartialMod:hits(itemName)),"\nXp to next Level: ", xpRequired, gameplayUI.whiteTag)
       end
-      weaponXp = string.format("%s%s%d%s%s", "UsageBonus: +", gameplayUI.damageColorTags.physical, CritPartialMod:returnhitamount(itemName, bullets), gameplayUI.whiteTag, " Damage")
+      CritPartialMod:extLogOut("isWeapon", "YES")
+   else
+      weaponXp = ""
+      CritPartialMod:extLogOut("isWeapon", "NO")
    end
    --STATS
    local infoTable = {
@@ -122,7 +126,6 @@ function CItemInfoUI:setup()
       weaponXp
    }
    local stats = table.concat(infoTable)
-   log(stats)
    self.stats:setText(stats)
 
    --VALUE
