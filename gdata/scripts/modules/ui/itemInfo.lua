@@ -1,5 +1,4 @@
 local oo = require "loop.simple"
-
 local MiscLabels = require "miscLabels"
 local ItemsData = require "itemsData"
 local stringx = require "pl.stringx"
@@ -8,7 +7,6 @@ local hlp = require "helpers"
 --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
 local CritPartialMod  = require "mods.partialcritmod"
 --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
-
 local CBaseModule = require "ui.baseModule"
 
 ---@class CItemInfoUI : CBaseModule
@@ -93,21 +91,6 @@ function CItemInfoUI:setup()
 
    local labelText = string.format("%s%s%s", qualityTag, ItemsData.getItemLabel(itemName), gameplayUI.whiteTag)
    self.name:setText(labelText)
-
-   local weaponXp = ""
-
-   if ItemsData.isItemWeapon(itemName) then
-      local xpRequired = CritPartialMod:nextLevel(CritPartialMod:currentWPNLevel(CritPartialMod:hits(itemName))+1)-CritPartialMod:hits(itemName)
-      if CritPartialMod:returnType(itemName) ~= "Melee" then
-         weaponXp = string.format("%s%s%d%s%d%s%s%.4f%s", "-------------Usage Stats-------------\n","WeaponLVL: ", CritPartialMod:currentWPNLevel(CritPartialMod:hits(itemName)),"\nXp to next Level: ", xpRequired, "\nAccuracyBonus: +", gameplayUI.damageColorTags.physical, CritPartialMod:AccuracyBonus(itemName), gameplayUI.whiteTag)
-      else
-         weaponXp = string.format("%s%s%d%s%d%s", "-------------Usage Stats-------------\n","WeaponLVL: ", CritPartialMod:currentWPNLevel(CritPartialMod:hits(itemName)),"\nXp to next Level: ", xpRequired, gameplayUI.whiteTag)
-      end
-      CritPartialMod:extLogOut("isWeapon", "YES")
-   else
-      weaponXp = ""
-      CritPartialMod:extLogOut("isWeapon", "NO")
-   end
    --STATS
    local infoTable = {
       self:getTypeInfo(itemName, qualityInt),
@@ -123,7 +106,9 @@ function CItemInfoUI:setup()
       self:getEnergyCostInfo(itemName, qualityInt, equippedItem),
       self:getRestoreInfo(itemName, qualityInt),
       self:getEffectsInfo(itemName, qualityInt),
-      weaponXp
+      CritPartialMod:itemInfoBaseStats(itemName),
+      CritPartialMod:wpnInfoStats(itemName),
+
    }
    local stats = table.concat(infoTable)
    self.stats:setText(stats)

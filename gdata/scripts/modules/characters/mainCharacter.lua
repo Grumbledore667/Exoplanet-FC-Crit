@@ -1835,7 +1835,8 @@ function CMainCharacter:attack_melee_running()
 
    coro.waitAnimationEventIn(self, anim, "attack")
    self:OnItemActivateSafe(currentWeapon)
-   self:spendStat("stamina", "staminaMeleeAttackCost", true)
+   local StaminaBonus = (5 - CritPartialMod:StaminaBonus(currentWeapon:getItemName())) * -1
+   self:spendStat("stamina", StaminaBonus, true)
 
    coro.waitAnimationEventOut(self, anim, "attack")
    self:OnItemDeactivateSafe(currentWeapon)
