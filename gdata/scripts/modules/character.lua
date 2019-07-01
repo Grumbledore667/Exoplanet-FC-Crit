@@ -632,31 +632,27 @@ function CCharacter:getItemLabel(itemName)
    end
 end
 
-function CCharacter:activate(obj)
-   if not self.activated then
-      self.activated = true
-      obj.exchangeTarget = self
-      obj:exchangeStart(self)
+function CCharacter:getInteractType(char)
+   if self:getState("dead") then
+      return "container"
+   else
+      return "no_interaction"
    end
-   return true
 end
 
-function CCharacter:deactivate(obj)
-   if self.activated then
-      self.activated = false
-      obj.exchangeTarget = nil
-      obj:exchangeStop(self)
-      gameplayUI.inventoryPlayer:show(false)
+function CCharacter:isInteractionLingering(char)
+   if self:getState("dead") then
+      return true
+   else
+      return false
    end
-   return true
 end
 
-function CCharacter:getType()
-   if not self:getState("dead") and not self:isEnemy(getMC()) then
-      return "talker"
-   elseif self:getState("dead") then
-      return "activator"
-   end
+function CCharacter:getInteractData(char)
+   local data = {
+      holster = false,
+   }
+   return data
 end
 
 function CCharacter:showInventory(state)
@@ -1468,7 +1464,7 @@ function CCharacter:trackLookAtTarget()
 
    local closestChar = self.senseScheduler:getClosestCharacter()
 
-   if self:getState("talk") and self.talkChar then
+   if self:getState("inDialog") and self.talkChar then
       closestChar = self.talkChar
    end
 

@@ -221,6 +221,8 @@ function CMainCharacter:OnCreate()
    runTimer(1.0 / 10, self, self.updateFocus, true)
    self.aiTree = "ai.trees.mainCharacter"
    self:createTree(self.aiTree)
+
+   self:setIgnoreSleep(true)
 end
 
 function CMainCharacter:updateFocus()
@@ -381,7 +383,7 @@ end
 function CMainCharacter:onSleepStart()
    self:setDisableActionStates(true)
    self:setState("sleeping", true)
-   if self:getState("sleepAtBed") then
+   if self:getState("interacting") then --Means it's on the bed
       gameplayUI.billboardUI:show(false)
    else
       self.animationsManager:playCycle(self.animations.sitbyfire.sleep)
@@ -396,11 +398,7 @@ function CMainCharacter:onSleepStop()
    self:setState("blockItemUse", false)
    self:setState("sleeping", false)
    self:setStatCount("health", self:getStatMax("health"))
-   if self:getState("sleepAtBed") then
-      local bedObject = self:getBBVar("bedObject")
-      if bedObject then
-         bedObject:deactivate(self)
-      end
+   if self:getState("interacting") then --Means it's on the bed
       gameplayUI.billboardUI:setup("Sleeping", string.format("Press '%s' to get up", getButtonCurrentKeyName("ACTIVATE")))
    else
       self.animationsManager:playCycle(self.animations.sitbyfire.default)
@@ -451,7 +449,7 @@ function CMainCharacter:OnIdle()
    if self:getState("hipFire") then
       self.camSlope = mixF(self.camSlope, getAngle({x=0, y=1, z=0}, self:getCamera():getUp(), self:getCamera():getRight()), getFrameTime() * 20)
    else
-      self.camSlope = mixF(self.camSlope, 0.0, getFrameTime())
+      self.camSlope = mixF(self.camSlope, 0.0, getFrameTime() * 10)
    end
 
    if math.abs(self.camSlope) < 1.0 then
@@ -601,27 +599,18 @@ function CMainCharacter:OnControlDown(code)
       end
 
    elseif code == getButtonCode("ACTIVATE") then
-      if self:canInteract() then
-         local bedObject = self:getBBVar("bedObject")
-         if self:getState("sleepAtBed") and bedObject then
-            bedObject:deactivate(self)
-         elseif self:getState("resting") and self.campObject and not gameplayUI.waitingUI:isWaitingMode() then
-            self.campObject:deactivate(self)
-         elseif self:getState("gathering") then
-            self:forceStopGathering(false)
-         elseif self.exchangeTarget and not self:getState("trading") then
-            self:interactObject("deactivate", self.exchangeTarget, nil)
-         else
-            self:preActivateObject()
-         end
+      if self:getState("interacting") and self:getState("interactStopUponActivate") then
+         self:interactStop()
       --Exception to be able to pickup 1 item during airtime/jumping
-      elseif self:getState("inAir") and focusObj and focusObj.getType and focusObj:getType() == "pickup" and not self:getState("disableAirPickup") then
-         self:preActivateObject()
+      elseif self:getState("inAir") and focusObj and focusObj.getInteractType and focusObj:getInteractType(self) == "pickup" and not self:getState("disableAirPickup") then
+         self:tryInteract()
          --restore air states and restrict another air pickup
          self:setState("disableInteraction", true)
          self:setState("disableJump", true)
          self:setState("blockItemUse", true)
          self:setState("disableAirPickup", true)
+      elseif not self:getState("inAir") and self:canInteract() then
+         self:tryInteract()
       end
 
    elseif code == getButtonCode("RELOAD") then
@@ -767,18 +756,11 @@ function CMainCharacter:OnControlUp(code)
       return false
    end
 
-   if code == getButtonCode("ATTACK") then
-      if not gameplayUI.inventoryPlayer:isVisible() and self:getState("interacting") then
-         self:activateObject()
-      end
-
-   elseif code == getButtonCode("AIM") then
+   if code == getButtonCode("AIM") then
       self:stopAiming()
 
-   elseif code == getButtonCode("ACTIVATE") then
-      if not gameplayUI.inventoryPlayer:isVisible() and self:getState("interacting") then
-         self:activateObject()
-      end
+   elseif code == getButtonCode("ACTIVATE") and self:getState("interactStopUponActivateUp") then
+      self:interactStop(true)
 
    elseif code == getButtonCode("ALT") then
       if gameplayUI.itemInfoUI:isVisible() then
@@ -790,40 +772,10 @@ function CMainCharacter:OnControlUp(code)
    return true
 end
 
-function CMainCharacter:exchangeStart(object)
-   gameplayUI.inventoryPlayer:show(true)
-   object:showInventory(true)
-end
-
-function CMainCharacter:exchangeStop(object)
-   object:showInventory(false)
-end
-
-function CMainCharacter:getTargetInventory()
-   if self.exchangeTarget then
-      return self.exchangeTarget:getInventory()
-   end
-   return nil
-end
-
 -- action methods
-
-function CMainCharacter:climbLadder(ladderObj)
-   if ladderObj then
-      self.ladderObj = ladderObj
-      if ladderObj:bottom() then
-         self:setState("climbing_ladder", true)
-      else
-         self:setState("climbing_ladder_down", true)
-      end
-      return true
-   else
-      return false
-   end
-end
-
 function CMainCharacter:climb_ladder_running()
-   local ladderPose = self.ladderObj:getPose()
+   local obj = self:getBBVar("interactObject")
+   local ladderPose = obj:getPose()
    local dir = vec3RotateQuat({x=0,y=0,z=1}, ladderPose:getRotQuat())
 
    self:setHeadLookingAllowed(false)
@@ -836,7 +788,7 @@ function CMainCharacter:climb_ladder_running()
    coro.wait(0.2)
 
    if self:getState("climbing_ladder") then
-      local anchors = self.ladderObj:getAnchors(self, "bottom")
+      local anchors = obj:getAnchors(self, "bottom")
       local speed = 140
       local anims = self.animations.ladder.up
 
@@ -866,7 +818,7 @@ function CMainCharacter:climb_ladder_running()
       coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
 
    elseif self:getState("climbing_ladder_down") then
-      local anchors = self.ladderObj:getAnchors(self, "top")
+      local anchors = obj:getAnchors(self, "top")
       local speed = 600
       local anims = self.animations.ladder.down
 
@@ -906,36 +858,23 @@ function CMainCharacter:climb_ladder_finish()
    self:setDisableActionStates(false)
    self:setHeadLookingAllowed(true)
    self:setCollisionObjects(true)
-   self.ladderObj = nil
+   self:setBBVar("interactObject", nil)
 end
 
-function CMainCharacter:restAtCamp(obj)
-   getScene():tryAutoSave()
-   self.campObject = obj
-   self:setState("resting", true)
-   return true
-end
-
-function CMainCharacter:leaveCamp(obj)
-   if self:getState("cooking") or gameplayUI.waitingUI:isWaitingMode() then
-      return false
-   end
-   self:setState("resting", false)
-   self.campObject = nil
-   return true
-end
 
 function CMainCharacter:rest_running()
+   local obj = self:getBBVar("interactObject")
+   hlp.safeActivateEntity(obj, self)
    self:setHeadLookingAllowed(false)
    self:holsterWeapon()
    self:setOrientationSpeed(0)
    self:setDisableActionStates(true)
    self:updateCamera()
 
-   if self.campObject then
-      local offset = vec3Add(vec3Mul(vec3Normalize(vec3Sub(self:getPose():getPos(), self.campObject:getPose():getPos())), 120), self.campObject:getPose():getPos())
+   if obj then
+      local offset = vec3Add(vec3Mul(vec3Normalize(vec3Sub(self:getPose():getPos(), obj:getPose():getPos())), 120), obj:getPose():getPos())
       offset.y = offset.y + 10
-      self:moveAndOrientate(offset, vec3Normalize(vec3Sub(self.campObject:getPose():getPos(), self:getPose():getPos())), 0.1)
+      self:moveAndOrientate(offset, vec3Normalize(vec3Sub(obj:getPose():getPos(), self:getPose():getPos())), 0.1)
       coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
    end
 
@@ -959,6 +898,9 @@ function CMainCharacter:rest_running()
 end
 
 function CMainCharacter:rest_finish()
+   local obj = self:getBBVar("interactObject")
+   hlp.safeDeactivateEntity(obj, self)
+   self:setBBVar("interactObject", nil)
    self:setState("getting up", true)
    self:updateCamera()
 end
@@ -995,80 +937,8 @@ function CMainCharacter:forceStopResting()
 
    --Wait for ai to start getting back to the rest state and stop it
    runTimer(0, nil, function()
-      if self:getState("resting") then
-         if self.restCoro then
-            self.restCoro:stop()
-            self.restCoro = nil
-         end
-         if self.campObject then
-            self.campObject:deactivate(self)
-         else
-            self:setState("resting", false)
-         end
-      end
+      self:setState("resting", false)
    end, false)
-end
-
-function CMainCharacter:restAtBed(obj)
-   getScene():tryAutoSave()
-   self:setBBVar("bedObject", obj)
-   self:setState("sleepAtBed", true)
-   return true
-end
-
-function CMainCharacter:leaveBed(obj)
-   if gameplayUI.waitingUI:isWaitingMode() then return false end
-   self:setState("sleepAtBed", false)
-   self:setState("leavingBed", true)
-   return true
-end
-
-function CMainCharacter:restAtBed_running()
-   self:setHeadLookingAllowed(false)
-   self:holsterWeapon()
-   self:setOrientationSpeed(0)
-   self:setDisableActionStates(true)
-   local bedObject = self:getBBVar("bedObject")
-
-   coro.wait(0.2) --Wait for the player movement to stop
-
-   bedObject:setCollisionCharacters(false, false)
-   local offset = localPointToWorld({x=0,y=0,z=-80}, bedObject:getPose())
-   offset.y = self:getPose():getPos().y
-   local dir = vec3RotateQuat({x=0,y=0,z=-1}, bedObject:getPose():getRotQuat())
-   self:moveAndOrientate(offset, dir, 0.5)
-
-   self.animationsManager:playCycle(self.animations.sleepAtBed.loop)
-   self.animationsManager:playAction(self.animations.sleepAtBed.to)
-
-   coro.wait(1) --Pause to let 'to' anim almost finish
-end
-
-function CMainCharacter:restAtBed_finish()
-   self:setState("disableInteraction", false)
-   gameplayUI:closeUI()
-   gameplayUI.waitingUI:show(true)
-   gameplayUI.billboardUI:setup("Sleeping", string.format("Press '%s' to get up", getButtonCurrentKeyName("ACTIVATE")))
-end
-
-function CMainCharacter:leavingBed_running()
-   gameplayUI.billboardUI:show(false)
-   gameplayUI.restHintUI:show(false)
-   gameplayUI.waitingUI:show(false)
-   self.animationsManager:playCycle("idle")
-   self.animationsManager:playAction(self.animations.sleepAtBed.out)
-   self:setState("disableInteraction", true)
-
-   coro.waitAnimationEnd(self, self.animations.sleepAtBed.out)
-end
-
-function CMainCharacter:leavingBed_finish()
-   self:setState("leavingBed", false)
-   local bedObject = self:getBBVar("bedObject")
-   bedObject:setCollisionCharacters(true, true)
-   self:setDisableActionStates(false)
-   self:setHeadLookingAllowed(true)
-   self:setBBVar("bedObject", nil)
 end
 
 function CMainCharacter:setDisableActionStates(state)
@@ -1126,6 +996,8 @@ function CMainCharacter:cook_finish()
 
    self:setState("resting", true)
    self:setState("finished_cooking", true)
+
+   gameplayUI.interactProgressUI:show(false)
 
    if self.cookItem then
       local cookInfo = ItemsData.getItemCookInfo(self.cookItem:getItemName())
@@ -1201,149 +1073,12 @@ function CMainCharacter:consume_finish()
    self:setState("consuming", false)
 end
 
-function CMainCharacter:interact_start()
-   if self:getState("talk") then
-      self:animatedMoveEvent("idle", nil)
-   else
-      self:holsterWeapon()
-      self.animationsManager:playCycle(self.animations.crouch.device)
-   end
-end
-
 -- not all interactable objects have a __tostring method that points to getDescriptiveName
 -- TODO:FIXME: fix it!
 local function tryGetDescriptiveName(obj)
    if obj then
       if obj.getDescriptiveName then return obj:getDescriptiveName() end
       if obj.getName then return obj:getName() end
-   end
-end
-
-function CMainCharacter:interactStart()
-   self:interactStopTimer()
-
-   --log("Interact Start: ".. self.interactType)
-
-   if self.interactType == "activate" then
-      log("Activating " .. tostring(tryGetDescriptiveName(self.interactTarget)))
-
-      if self.interactTime > 0 then
-         questSystem:fireEvent("start_activate", self.interactTarget:getName(), self.interactTarget)
-         self:setState("interacting", true)
-
-         gameplayUI.interactProgressUI:setup("Interacting", self.interactTime)
-
-         self.interactTimer = runTimer(self.interactTime, self,  function (obj)
-            if obj.interactTarget.activate then
-               obj.interactTarget:activate(obj)
-            end
-            obj:interactStop()
-         end, false)
-      else
-         if self.interactTarget.activate then
-            self.interactTarget:activate(self)
-         end
-         self:interactStop()
-      end
-
-   elseif self.interactType == "deactivate" then
-      log("Deactivating " .. tostring(tryGetDescriptiveName(self.interactTarget)))
-
-      if self.interactTarget.deactivate then
-         self.interactTarget:deactivate(self)
-      end
-
-      self:interactStop()
-
-   elseif self.interactType == "drop" then
-      if self.interactTime > 0 then
-         self:setState("interacting", true)
-
-         gameplayUI.interactProgressUI:setup("Installing", self.interactTime)
-
-         self.interactTimer = runTimer(self.interactTime, nil,  function ()
-            local target = self.interactTarget
-            self.interactTarget:OnAltActivate()
-            gameplayUI:showInventoryPickInfo(target:getLabel() .. " was removed from Inventory")
-            self:getInventory():destroyItem(target)
-            self:interactStop()
-         end, false)
-      else
-      -- drop item
-      end
-
-   elseif self.interactType == "pick" then
-      local itemName = (self.interactTarget.getItemName and self.interactTarget:getItemName()) or self.interactTarget.itemName
-      if itemName and self:getInventory():canStoreItems(itemName) <= 0 then
-         gameplayUI:showInventoryPickInfo("Can't add to Inventory (Limit reached)")
-         return
-      end
-      self:setState("picking", true)
-      if isDebug("fastLoot") or self:getState("inAir") then
-         self:onObjectTakenEventIn()
-         self:onPickupAnimationEnd()
-      else
-         self:setDisableActionStates(true)
-         local difference = self.interactTarget:getPose():getPos().y - self:getPose():getPos().y
-         if difference > 130 then
-            self.pickupAnimation = self.animations.idle.to.takeobjectfast_top
-         elseif difference > 70 then
-            self.pickupAnimation = self.animations.idle.to.takeobjectfast_table
-         else
-            self.pickupAnimation = self.animations.idle.to.takeobjectfast
-         end
-
-         self.animationsManager:playAction(self.pickupAnimation, 0.3, 0.3)
-         self.animationsManager:subscribeAnimationEventIn(self.pickupAnimation, "obj_taken", self.onObjectTakenEventIn, self)
-         self.animationsManager:subscribeAnimationEventIn(self.pickupAnimation, "end", self.onPickupAnimationEnd, self)
-         self.animationsManager:subscribeAnimationEnd(self.pickupAnimation, self.onPickupAnimationEnd, self)
-      end
-   elseif self.interactType == "talk" then
-      self:startTalk(self.interactTarget)
-      self:interactStop()
-   end
-end
-
-function CMainCharacter:onObjectTakenEventIn()
-   if not self.interactTarget or not hlp.isOperable(self.interactTarget) then return end
-
-   local item, count = self.interactTarget:pickupItem(self.inventory)
-   local countText = ""
-   if item then
-      if count and count > 1 then
-         countText = string.format("(%d)", count)
-      end
-      gameplayUI:showInventoryPickInfo(item:getLabel() .. countText  .. " was added to Inventory")
-   end
-end
-
-function CMainCharacter:onPickupAnimationEnd()
-   self:setState("picking", false)
-   self:setDisableActionStates(false)
-   self:interactStop()
-   self.animationsManager:clearCallbacks(self.pickupAnimation)
-   if self.pickupTimer then
-      self.pickupTimer:stop()
-      self.pickupTimer = nil
-   end
-end
-
-function CMainCharacter:interactStop()
-   log("Interact Stop")
-   self:interactStopTimer()
-
-   gameplayUI.interactProgressUI:show(false)
-
-   self.interactTarget = nil
-   self.interactInterruptCB = nil
-
-   self:setState ("interacting", false)
-end
-
-function CMainCharacter:interactStopTimer()
-   if self.interactTimer then
-      self.interactTimer:stop()
-      self.interactTimer = nil
    end
 end
 
@@ -1432,8 +1167,7 @@ function CMainCharacter:animatedMoveEvent(moveType, dirType)
       return false
    end
 
-   if self:getState("sliding") or self:getState("gathering") or self:getState("picking") or self:getState("openLootbox")
-      or self:getState("knockout") or self:getState("sleepAtBed") or self:getState("falling") then return false end
+   if self:getState("sliding") or self:getState("knockout") or self:getState("falling") then return false end
 
    local currentWeapon = self:getWeaponSlotItem()
    local animationSet = currentWeapon and currentWeapon:getAnimations()
@@ -1835,8 +1569,7 @@ function CMainCharacter:attack_melee_running()
 
    coro.waitAnimationEventIn(self, anim, "attack")
    self:OnItemActivateSafe(currentWeapon)
-   local StaminaBonus = (5 - CritPartialMod:StaminaBonus(currentWeapon:getItemName())) * -1
-   self:spendStat("stamina", StaminaBonus, true)
+   self:spendStat("stamina", "staminaMeleeAttackCost", true)
 
    coro.waitAnimationEventOut(self, anim, "attack")
    self:OnItemDeactivateSafe(currentWeapon)
@@ -1902,135 +1635,6 @@ end
 function CMainCharacter:onStopMessage()
 end
 
-function CMainCharacter:startAnimatedGathering(obj, toolPrefab)
-   if not gameplayUI.billboardUI:isVisible() then
-      gameplayUI.billboardUI:setup("Gathering", "Press 'Activate' to stop")
-   end
-   self:holsterWeapon()
-   self:setOrientationSpeed(0)
-   self:setDisableActionStates(true)
-   self:setState("disableInteraction", false) --so it could be cancelled by player
-   self:setState("gathering", true)
-   self.gatherObj = obj
-   if toolPrefab and not self.toolEntity then
-      self.toolEntity = getScene():createEntity(toolPrefab, "")
-      if self.toolEntity then
-         self.toolEntity:getPose():setParent(self:getBonePose("item_slot" .. self:getWeaponSlot()))
-         self.toolEntity:getPose():resetLocalPose()
-      end
-   end
-end
-
-function CMainCharacter:tryStopAnimatedGathering(forced)
-   if self.gatherObj and self.gatherObj:getActivationsLeft() <= 0 or forced then
-      self.animationsManager:clearCallbacks(self.gatherAnimation)
-      self:setDisableActionStates(false)
-      self:setState("gathering", false)
-      hlp.safeDestroyEntity(self.toolEntity)
-      self.toolEntity = nil
-      gameplayUI.billboardUI:show(false)
-      if self.gatherObj then
-         self.gatherObj:deactivate(self)
-         self.gatherObj = nil
-      end
-   end
-end
-
-function CMainCharacter:forceStopGathering(onHit)
-   if not onHit then
-      self.animationsManager:stopActionsAndCycles()
-   end
-   self:tryStopAnimatedGathering(true)
-end
-
-function CMainCharacter:startDigging(obj)
-   self:setState("digging", true)
-   self:setBBVar("gatherObj", obj)
-end
-
-function CMainCharacter:digging_start()
-   local obj = self:getBBVar("gatherObj")
-   self:startAnimatedGathering(obj, "shovel.sbg")
-   self.animationsManager:playCycle(self.animations.dig.default)
-
-   local function onDustEventIn()
-      self.fx.digging_dust:play()
-      runTimer(2, nil, function() self.fx.digging_dust:stop() end, false)
-   end
-
-   local function onDigSoundEventIn()
-      self.soundManager:OnEventIn(obj:getDigSound())
-   end
-
-   local function onDigEventIn()
-      self.gatherObj:onDigDone()
-   end
-
-   self.gatherAnimation = self.animations.dig.default
-   self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "dust", onDustEventIn, self)
-   self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "dig", onDigEventIn, self)
-   self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "dig_sound", onDigSoundEventIn, self)
-   self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "end", self.tryStopAnimatedGathering, self)
-end
-
-
-function CMainCharacter:startMining(obj)
-   self:setState("mining", true)
-   self:setBBVar("gatherObj", obj)
-end
-
-function CMainCharacter:mining_start()
-   local obj = self:getBBVar("gatherObj")
-   local prefabName = obj:getPrefabName()
-   if obj:getPose():getPos().y - self:getPose():getPos().y > 50
-      or prefabName == "shard_4.sbg"
-      or prefabName == "shard_5.sbg"
-      or prefabName == "shard_6.sbg" then
-      self.gatherAnimation = self.animations.mine.front
-   else
-      self.gatherAnimation = self.animations.mine.down
-   end
-   self:startAnimatedGathering(obj, "pickaxe.sbg")
-   self.animationsManager:playCycle(self.gatherAnimation)
-
-   local function onMiningHit()
-      local timesMined = getGlobalParam("timesMined") + 1
-      setGlobalParam("timesMined", timesMined)
-      local skillUp = 0
-      if timesMined == 10 then
-         skillUp = 2
-      elseif timesMined == 20 then
-         skillUp = 5
-      elseif timesMined == 30 then
-         skillUp = 10
-      end
-      self.skillsManager:inc("mining", skillUp)
-
-      if self.gatherAnimation == self.animations.mine.front then
-         self.fx.antigrav_hit:getPose():setLocalPos({x=35,y=120,z=-135})
-         self.fx.antigrav_hit:play()
-      else
-         self.fx.antigrav_hit:getPose():setLocalPos({x=20,y=0,z=-135})
-         self.fx.antigrav_hit:play()
-      end
-
-      local skill = self.skillsManager:get("mining")
-      local count = obj.fertility + random.random(-2,2) + (obj.fertility + 1) * math.floor(skill/10)
-      count = math.max(count, obj.fertility)
-      addItemToPlayer("antigravium_shards.itm", count)
-
-      if not obj.crystalMined and skill * (0.5 + obj.fertility/10) >= random.random(1, 100) then
-         addItemToPlayer("antigravium.itm", 1)
-         obj.crystalMined = true
-      end
-      obj.resource = obj.resource - 1
-      obj:onMiningHit()
-   end
-
-   self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "hit", onMiningHit, self)
-   self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "end", self.tryStopAnimatedGathering, self)
-end
-
 function CMainCharacter:OnHotbarItemClick(index)
    local hoveredItem = gameplayUI.hoveredItem
    --Set the currently hovered item to hotbar (excluding the Q slot if container is open)
@@ -2059,6 +1663,7 @@ function CMainCharacter:holsterWeapon(doNotInterrupt, forceAutoAssign)
       if fastSlot then
          pInventory:equipSlotWithItem(fastSlot, weapon:getId(), true, false)
       end
+      self:stopHipFire(0, true)
    end
 end
 
@@ -2298,77 +1903,452 @@ function CMainCharacter:prevWeapon()
    CPlayer.prevWeapon(self)
 end
 
-function CMainCharacter:interactObject(intType, intObject, interruptCB)
-   self.interactType        = intType
-   self.interactTarget      = intObject
-   self.interactInterruptCB = interruptCB
-
-   --log("Interact Type: " .. intType)
-
-   self.interactTime = 0
-
-   if intObject.getInteractTime then
-      self.interactTime = intObject:getInteractTime(intType)
-   end
-
-   self:interactStart()
-end
-
-function CMainCharacter:preActivateObject()
-   local interactor = gameplayUI:getFocusObj()
-
-   if interactor then
-      local interactorType = interactor.getType and interactor:getType()
-      if interactorType == "activator" and interactor.isActivated and interactor:isActivated() then
-         self:interactObject("deactivate", interactor, nil)
-
-      elseif interactorType == "talker" then
-         self:interactObject("talk", interactor, nil)
-
-      elseif interactorType == "turret" then
-         self:interactObject("activate", interactor, function (obj) obj:interactObject("activate", obj.interactTarget, nil) end)
-
-      elseif interactorType == "pickup" then
-         self:interactObject("pick", interactor, nil)
-
-      elseif interactorType == "activator" then
-         self:interactObject("activate", interactor, nil)
+function CMainCharacter:checkRemoveItems(obj)
+   if obj.removeItems then
+      local hasAllItems = true
+      for itemName, count in pairs(obj.removeItems) do
+         local item = self.inventory:getItemByName(itemName)
+         if not item then
+            gameplayUI:showInventoryDropInfo("Missing ".. count .. " " ..  ItemsData.getItemLabel(itemName))
+            hasAllItems = false
+         elseif item:getCount() < count then
+            gameplayUI:showInventoryDropInfo("Missing ".. (count - item:getCount()) .. " " .. ItemsData.getItemLabel(itemName))
+            hasAllItems = false
+         end
       end
 
-   elseif self:getWeaponSlotItem() and self:getWeaponSlotItem():hasAltActivation() then
-      self:interactObject("drop", self:getWeaponSlotItem(), nil)
+      if not hasAllItems then return false end
+
+      for itemName, count in pairs(obj.removeItems) do
+         removeItemFromObj(itemName, self, count)
+      end
+   end
+   return true
+end
+
+function CMainCharacter:tryInteract(obj)
+   local weaponSlotItem = self:getWeaponSlotItem()
+   obj = obj or gameplayUI:getFocusObj() or (weaponSlotItem and weaponSlotItem:hasAltActivation() and weaponSlotItem)
+   if obj then
+      local interactType = obj.getInteractType and obj:getInteractType(self)
+      if interactType == "no_interaction" or not interactType then
+         return
+      elseif interactType == "activator" then
+         if not self:checkRemoveItems(obj) then
+            return
+         end
+      elseif interactType == "bed" then
+         local bedOwnerName = obj:getOwnerName()
+         if bedOwnerName and bedOwnerName ~= "player" then
+            gameplayUI:showInfoTextEx("It's not your bed", "minor", "")
+            return
+         end
+      elseif interactType == "mine" then
+         if obj:isDepleted(self) then
+            gameplayUI:showInfoTextEx("There is nothing to mine here", "minor", "")
+            return
+         elseif not self.inventory:getItemByName("pickaxe.wpn") then
+            gameplayUI:showInfoTextEx("I need a pickaxe to mine", "minor", "")
+            return
+         end
+      elseif interactType == "dig" then
+         if not self.inventory:getItemByName("shovel.wpn") then
+            gameplayUI:showInfoTextEx("I need a shovel to dig", "minor", "")
+            return
+         end
+      elseif interactType == "rest_camp" then
+         --Custom AI branch, not using default interact action
+         if self:getState("resting") then
+            self:forceStopResting()
+            return
+         else
+            self:setState("resting", true)
+            self:setBBVar("interactObject", obj)
+            getScene():tryAutoSave()
+            return
+         end
+      elseif interactType == "ladder" then
+         --Custom AI branch, not using default interact action
+         self:setBBVar("interactObject", obj)
+         if obj:bottom() then
+            self:setState("climbing_ladder", true)
+         else
+            self:setState("climbing_ladder_down", true)
+         end
+         return
+      elseif interactType == "fast_travel" then
+         local count = 0
+         for _, entry in pairs(getGlobalParam("fast_travel_destinations")) do
+            if entry.discovered then
+               count = count + 1
+            end
+         end
+         if count <= 0 then
+            gameplayUI:showInfoTextEx("I should explore more places", "minor", "")
+            return
+         end
+      --TODO:FIXME: refactor this as general pickup check - all pickups must have getItemName method
+      elseif interactType == "bug" then
+         if self.inventory:canStoreItems(obj:getItemName(), 1) <= 0 then
+            gameplayUI:showInventoryPickInfo("Too many bugs in inventory")
+            return
+         end
+      elseif interactType == "lockable" then
+         if obj.lockObject then
+            gameplayUI:showInfoTextEx("Remotely locked", "minor", "")
+            return
+         end
+      end
+      self:setBBVar("interactObject", obj)
+      self:setBBVar("interactType", interactType) --cache it, in case it changes during interaction
+      self:setState("interacting", true)
    end
 end
 
-function CMainCharacter:activateObject()
-   if self:activateInterrupt() then
-      return true
-   end
+function CMainCharacter:interact_running()
+   local obj = self:getBBVar("interactObject")
+   if hlp.isOperable(obj) then
+      if hlp.isDestroyable(obj) then
+         self:setBBVar("interactObjectDestroyCallback", obj:subscribeOnDestroy(self.interactStop, self, true))
+      end
 
-   if gameplayUI.inventoryPlayer:isVisible() then
-      gameplayUI.inventoryPlayer:show(false)
-      return true
-   end
+      local data = obj.getInteractData and obj:getInteractData(self)
+      local preActivateCalled = false
+      local activateCalled = false
+      local isLingering = obj:isInteractionLingering()
+      local animations = data and data.animations
+      local holster = data and data.holster
 
-   return false
+      --Lingering animations require holster unless it's specified not to use it
+      if isLingering and holster ~= false or holster then
+         self:holsterWeapon() --Should be before animatedMoveEvent for correct animation
+      else
+         self:setState("hipFire", false) --So the animations won't be warped with rotateBone
+      end
+
+      self:animatedMoveEvent("idle")
+      self:setState("interactStopUponActivate", true)
+      self:setDisableActionStates(true) --TODO:FIXME: maybe unnecessary, if this AI action is of high priority
+
+      if data then
+         if data.noEscape then
+            self:setState("interactStopUponActivate", false)
+         end
+
+         if data.holdButton then
+            self:setState("interactStopUponActivateUp", true)
+         end
+
+         --Anchor if needed
+         if data.anchorPos and data.anchorDir then
+            coro.wait(0.2)
+
+            self:moveAndOrientate(data.anchorPos, data.anchorDir, 0.3)
+
+            coro.waitCharacterEvent(self, "OnMoveAndOrientateStop")
+         end
+
+         hlp.safePreActivateEntity(obj, self)
+         preActivateCalled = true
+
+         --Animate
+         if animations then
+            self:setHeadLookingAllowed(false)
+
+            if animations.loop then
+               self.animationsManager:playCycle(animations.loop)
+            end
+
+            if animations.activate then
+               self.animationsManager:playAction(animations.activate)
+
+               --Wait for either 'activate' or 'end' event of the animation
+               local selector = coro.waitAny(coro.animationEventIn(self, animations.activate, "activate"), coro.animationEnd(self, animations.activate))
+
+               hlp.safeActivateEntity(obj, self)
+               self:onObjectActivate(obj)
+               activateCalled = true
+
+               --If we got 'activate' event - wait for 'preemptive_end' or 'end' event
+               if selector.eventType == "onAnimationEventIn" then
+                  coro.waitAny(coro.animationEventIn(self, animations.activate, "preemptive_end"), coro.animationEnd(self, animations.activate))
+               end
+            end
+         end
+
+         --Show interaction progress
+         --It's not in else of 'if animations' check because you might want to use loop + interact window
+         if data.time and data.time ~= 0 then
+            gameplayUI.interactProgressUI:setup("Installing", data.time)
+
+            coro.wait(data.time)
+
+            hlp.safeActivateEntity(obj, self)
+            self:onObjectActivate(obj)
+            activateCalled = true
+         end
+      end
+
+      --Easy way to make sure these are called
+      if not preActivateCalled then hlp.safePreActivateEntity(obj, self) end
+      if not activateCalled then
+         hlp.safeActivateEntity(obj, self)
+         self:onObjectActivate(obj)
+      end
+
+      if not isLingering then return end
+
+      --Wait
+      while not self:getState("interacting_out") do
+         coro.waitNextTick()
+      end
+
+      --Deactivate
+      hlp.safeDeactivateEntity(obj, self)
+      self:onObjectDeactivate(obj)
+
+      --Animate exiting
+      if animations and animations.deactivate then --Animate
+         self.animationsManager:playCycle("idle")
+         self.animationsManager:playAction(animations.deactivate)
+
+         coro.waitAnimationEnd(self, animations.deactivate)
+      end
+   end
 end
 
-function CMainCharacter:activateInterrupt()
-   if self:getState("interacting") then
-      local callback = self.interactInterruptCB
-      local target   = self.interactTarget
+function CMainCharacter:interact_finish()
+   local obj = self:getBBVar("interactObject")
+   self:setBBVar("interactObject", nil)
+   self:setBBVar("interactType", nil)
+   self:setState("interacting", false)
+   self:setState("interacting_out", false)
+   self:setState("interactStopUponActivate", false)
+   self:setState("interactStopUponActivateUp", false)
+   self:setHeadLookingAllowed(true)
+   self:setDisableActionStates(false)
 
+   self:stopMoveAndOrientate()
+
+   if hlp.isOperable(obj) then
+      --Unsub from destruction
+      if hlp.isDestroyable(obj) then
+         local callback = self:getBBVar("interactObjectDestroyCallback")
+         obj:unsubscribeOnDestroy(callback)
+         self:setBBVar("interactObjectDestroyCallback", nil)
+      end
+
+      --Deactivate in case action ended abruptly
+      if not obj:isInteractionLingering(self) then
+         hlp.safeDeactivateEntity(obj, self) --Requires the method to be secure from consecutive calls
+         self:onObjectDeactivate(obj)
+      end
+   end
+
+   gameplayUI.interactProgressUI:show(false)
+end
+
+function CMainCharacter:interactStop(force)
+   if not self:getState("interacting") then return end
+   if force and self:getState("interactStopUponActivateUp") then
+      self:setState("interacting", false)
+   elseif not force then
+      self:setState("interacting_out", true)
+   end
+end
+
+function CMainCharacter:onObjectActivate(obj, interactType)
+   interactType = interactType or self:getBBVar("interactType")
+   if interactType == "container" then
+      self.exchangeTarget = obj
+      gameplayUI.inventoryPlayer:show(true)
+      obj:showInventory(true)
+   elseif interactType == "lockable" then
+      local characterHasKey = obj:characterHasKey(self)
+      if characterHasKey then
+         gameplayUI:showInfoTextEx("Opened with " .. ItemsData.getItemLabel(characterHasKey), "minor", "")
+         obj:setLockState(false)
+      elseif obj.code then
+         gameplayUI.combLockUI:show(true)
+      else
+         gameplayUI:showInfoTextEx("Locked", "minor", "")
+      end
+   elseif interactType == "bed" then
+      getScene():tryAutoSave()
+      gameplayUI:closeUI()
+      gameplayUI.waitingUI:show(true)
+      gameplayUI.billboardUI:setup("Sleeping", string.format("Press '%s' to get up", getButtonCurrentKeyName("ACTIVATE")))
+   elseif interactType == "pickup" or interactType == "bug" then
+      local item, count = obj:pickupItem(self.inventory)
+      local countText = ""
+      if item then
+         if count and count > 1 then
+            countText = string.format("(%d)", count)
+         end
+         gameplayUI:showInventoryPickInfo(item:getLabel() .. countText  .. " was added to Inventory")
+      end
+   elseif interactType == "item" then
+      obj:OnAltActivate()
+      obj:destroy()
+      gameplayUI:showInventoryPickInfo(obj:getLabel() .. " was removed from Inventory")
+   elseif interactType == "mine" then
+      if not obj:isDepleted(self) then
+         local pickaxe = self.inventory:getItemByName("pickaxe.wpn")
+         self.inventory:equipSlotWithItem(self:getWeaponSlot(), pickaxe:getId())
+
+         local data = obj:getInteractData(self)
+         self.gatherAnimation = data.animations.loop
+         self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "hit", self.onMiningHit, self, obj)
+
+         if not gameplayUI.billboardUI:isVisible() then
+            gameplayUI.billboardUI:setup("Gathering", "Press 'Activate' to stop")
+         end
+      else
+         self:interactStop()
+      end
+   elseif interactType == "dig" then
+      self.tempAttachment = getScene():createEntity("shovel.sbg", "") --Because weapon shovel is pivoted differently
+      if self.tempAttachment then
+         self.tempAttachment:getPose():setParent(self:getBonePose("item_slot" .. self:getWeaponSlot()))
+         self.tempAttachment:getPose():resetLocalPose()
+      end
+
+      local function onDustEventIn()
+         self.fx.digging_dust:play()
+         runTimer(2, nil, function() self.fx.digging_dust:stop() end, false)
+      end
+
+      local function onDigSoundEventIn()
+         self.soundManager:OnEventIn(obj:getDigSound())
+      end
+
+      local function onDigEventIn()
+         obj:onDigDone()
+         if obj:isOpen() then
+            self:interactStop()
+         end
+      end
+
+      local data = obj:getInteractData(self)
+      self.gatherAnimation = data.animations.loop
+      self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "dust", onDustEventIn, self)
+      self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "dig", onDigEventIn, self)
+      self.animationsManager:subscribeAnimationEventIn(self.gatherAnimation, "dig_sound", onDigSoundEventIn, self)
+
+      if not gameplayUI.billboardUI:isVisible() then
+         gameplayUI.billboardUI:setup("Gathering", "Press 'Activate' to stop")
+      end
+   elseif interactType == "elevator" then
+      local callbacks = {
+         onPause = {["func"] = function()
+            self:getPose():setPos(obj.destinationObj:getPose():getPos())
+            self:setDisableActionStates(false)
+            self:interactStop()
+         end},
+      }
+      gameplayUI:startFadeToBlackSequence(0.5, 1, 0.5, callbacks)
+   elseif interactType == "fast_travel" then
+      gameplayUI.travelUI:setupTravel(obj)
+   elseif interactType == "readable" then
+      if obj.window then
+         gameplayUI.messageUI:showText(true, obj.title, obj.contents)
+      else
+         gameplayUI.billboardUI:setup(obj.title, obj.contents)
+      end
+   elseif interactType == "terminal" then
+      TerminalUI.showCursor()
+      gameplayUI:setCursorVisible(false)
+      blockUserControl()
+      resetCursorPos()
+      gameplayUI.terminal.activeTerminal = obj
+      self:updateCamera()
+   end
+   questSystem:fireEvent("activate", obj:getName(), obj)
+end
+
+function CMainCharacter:onObjectDeactivate(obj, interactType)
+   interactType = interactType or self:getBBVar("interactType")
+   if interactType == "container" then
+      obj:showInventory(false)
+      self.exchangeTarget = nil
+   elseif interactType == "lockable" then
+      gameplayUI.combLockUI:show(false)
+   elseif interactType == "bed" then
+      gameplayUI.billboardUI:show(false)
+      gameplayUI.restHintUI:show(false)
+      gameplayUI.waitingUI:show(false)
+   elseif interactType == "mine" or interactType == "dig" then
+      self.inventory:unequipSlot(self:getWeaponSlot())
+      self.animationsManager:clearCallbacks(self.gatherAnimation)
+      self.gatherAnimation = nil
+      gameplayUI.billboardUI:show(false)
+      if self.tempAttachment then
+         hlp.safeDestroyEntity(self.tempAttachment)
+      end
+   elseif interactType == "fast_travel" then
+      gameplayUI.travelUI:show(false)
+   elseif interactType == "readable" then
+      if obj.window then
+         gameplayUI.messageUI:show(false)
+      else
+         gameplayUI.billboardUI:show(false)
+      end
+   elseif interactType == "terminal" then
+      if TerminalUI.isCursorVisible() then
+         TerminalUI.hideCursor()
+         if GUIUtils.interactiveWindowsVisible() then
+            gameplayUI:setCursorVisible(true)
+         else
+            returnUserControl()
+         end
+         gameplayUI.terminal.activeTerminal = nil
+      end
+   end
+end
+
+function CMainCharacter:onMiningHit(obj)
+   local timesMined = getGlobalParam("timesMined") + 1
+   setGlobalParam("timesMined", timesMined)
+   local skillUp = 0
+   if timesMined == 10 then
+      skillUp = 2
+   elseif timesMined == 20 then
+      skillUp = 5
+   elseif timesMined == 30 then
+      skillUp = 10
+   end
+   self.skillsManager:inc("mining", skillUp)
+
+   if self.gatherAnimation == "mine_front" then
+      self.fx.antigrav_hit:getPose():setLocalPos({x=35,y=120,z=-135})
+      self.fx.antigrav_hit:play()
+   else
+      self.fx.antigrav_hit:getPose():setLocalPos({x=20,y=0,z=-135})
+      self.fx.antigrav_hit:play()
+   end
+
+   local skill = self.skillsManager:get("mining")
+   local count = obj.fertility + random.random(-2,2) + (obj.fertility + 1) * math.floor(skill/10)
+   count = math.max(count, obj.fertility)
+   addItemToPlayer("antigravium_shards.itm", count)
+
+   if not obj.crystalMined and skill * (0.5 + obj.fertility/10) >= random.random(1, 100) then
+      addItemToPlayer("antigravium.itm", 1)
+      obj.crystalMined = true
+   end
+   obj.resource = obj.resource - 1
+   obj:onMiningHit()
+
+   if obj:isDepleted() then
       self:interactStop()
-
-      if callback then
-         self.interactTarget = target
-         callback(self)
-         self.interactTarget = nil
-      end
-      return true
    end
+end
 
-   return false
+function CMainCharacter:getTargetInventory()
+   if self.exchangeTarget then
+      return self.exchangeTarget:getInventory()
+   end
+   return nil
 end
 
 function CMainCharacter:startControlObject(object, entityName, entityClass, cameraParams)
@@ -2438,8 +2418,6 @@ function CMainCharacter:tryCancelActions(onHit)
    self:tryCancelScan()
    if self:getState("resting") then
       self:forceStopResting()
-   elseif self:getState("gathering") then
-      self:forceStopGathering(onHit)
    end
 end
 
@@ -2454,15 +2432,8 @@ function CMainCharacter:tryCancelScan()
 end
 
 function CMainCharacter:tryCancelCooking()
-   if self:getState("cooking") then
-      if self.cookCoro then
-         self.cookCoro:stop()
-         self.cookCoro = nil
-      end
-      self:cook_finish()
-      gameplayUI.interactProgressUI:show(false)
-      self:setState("cooking", false)
-   end
+   self:setState("cooking", false)
+   self.sounds.fry:stop()
 end
 
 function CMainCharacter:tryCancelConsuming()
@@ -2535,6 +2506,7 @@ function CMainCharacter:startTalk(char)
       self:tryCancelUnequipping()
       self:unequipItem(self:getWeaponSlotItem())
       self:setState("talk", true)
+      self:setOrientationSpeed(0)
       self:moveAndOrientate(self:getPose():getPos(), vec3Normalize(vec3Sub(char:getPose():getPos(), self:getPose():getPos())), 0.5)
       self:updateCamera()
 
@@ -2800,42 +2772,6 @@ function CMainCharacter:reload_finish()
    self:setState("disableMove", false)
    self:setState("disableInteraction", false)
    self:setHeadLookingAllowed(true)
-end
-
-function CMainCharacter:openLootbox(obj)
-   self:setState("openLootbox", true)
-   self:setDisableActionStates(true)
-   self:holsterWeapon()
-   runTimer(0.2, nil, function() --Wait for movement to end
-      local pos = obj.animAnchor:getPose():getPos()
-      pos.y = obj:getPose():getPos().y
-      local dir = vec3RotateQuat({x=0,y=0,z=-1}, obj:getPose():getRotQuat())
-
-      self:moveAndOrientate(pos, dir, 0.3)
-      runTimer(0.3, nil, function()
-         self.animationsManager:playCycle(self.animations.idle.lootbox.loop)
-         self.animationsManager:playAction(self.animations.idle.lootbox.to)
-         self.animationsManager:subscribeAnimationEventIn(self.animations.idle.lootbox.to, "end", self.onLootboxOpenEnd, self)
-         obj:playAnimation("open", false)
-      end, false)
-   end, false)
-end
-
-function CMainCharacter:onLootboxOpenEnd(obj)
-   self:setState("disableInteraction", false)
-   self:exchangeStart(self.exchangeTarget)
-end
-
-function CMainCharacter:closeLootbox(obj)
-   self:setState("disableInteraction", true)
-   self:setState("openLootbox", false)
-   self.animationsManager:playAction(self.animations.idle.lootbox.out)
-   self.animationsManager:subscribeAnimationEventIn(self.animations.idle.lootbox.out, "end", self.onLootboxCloseEnd, self)
-   obj:playAnimation("close", false)
-end
-
-function CMainCharacter:onLootboxCloseEnd(obj)
-   self:setDisableActionStates(false)
 end
 
 function CMainCharacter:runScanWave(item, animated)
