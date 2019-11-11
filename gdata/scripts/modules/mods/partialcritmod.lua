@@ -304,7 +304,7 @@ function partialcritmod:addhit(item)
     if MinMaxChance[item] then
         MinMaxChance[item].hits = MinMaxChance[item].hits + 1
         local gun = getPlayer():getWeaponSlotItem()
-        if partialcritmod:returnType(item) ~= "Melee" then
+        if returnWeaponType(item) ~= "Melee" then
             local currentaccuracy = ItemsData.getItemAccuracy(gun:getItemName())
             gun:setAccuracy(currentaccuracy + partialcritmod:AccuracyBonus(item))
         else
@@ -352,6 +352,7 @@ function partialcritmod:StaminaBonus(item)
         local currentWPNLevel = partialcritmod:currentWPNLevel(MinMaxChance[item].hits)
         if currentWPNLevel > 0 then
             bonus = currentWPNLevel * 0.1
+            partialcritmod:extLogOut("StaminaBonus: ", bonus)
             if bonus >= 4 then
                 bonus = 4
             end
@@ -407,7 +408,7 @@ function settingdefaults()
         partialcritmod.randmin = 20
     end
     partialcritmod.randresult = random.random(0 + difficulty[partialcritmod.diffvalue].MaxChance, partialcritmod.randbase - difficulty[partialcritmod.diffvalue].MinChance)
-    partialcritmod:extLogOut("CurrentStamina", currentstam)
+
 end
 
 function partialcritmod:extLogOut(logname, logvalue)

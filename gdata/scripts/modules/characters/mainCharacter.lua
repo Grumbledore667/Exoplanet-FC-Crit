@@ -12,6 +12,7 @@ local GUIUtils      = require "ui.utils"
 --+++++++++++++++++++++++++++++++++++++++++ Mod +++++++++++++++++++++++++++++++++++++++++++++
 local CritPartialMod  = require "mods.partialcritmod"
 --+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
+--+++++++++++++++++++++++++++++++++++++++++ /Mod ++++++++++++++++++++++++++++++++++++++++++++
 local hlp = require "helpers"
 local coro = require "coroutines.helpers"
 
@@ -780,7 +781,8 @@ function CMainCharacter:climb_ladder_running()
 
    self:setHeadLookingAllowed(false)
    self:holsterWeapon()
-   self:setOrientationSpeed(0)
+   self:resetSpeed()
+   self.animationsManager:playCycle("idle")
    self:setDisableActionStates(true)
    self:setCollisionObjects(false)
 
@@ -867,7 +869,8 @@ function CMainCharacter:rest_running()
    hlp.safeActivateEntity(obj, self)
    self:setHeadLookingAllowed(false)
    self:holsterWeapon()
-   self:setOrientationSpeed(0)
+   self:resetSpeed()
+   self.animationsManager:playCycle("idle")
    self:setDisableActionStates(true)
    self:updateCamera()
 
@@ -1423,23 +1426,6 @@ function CMainCharacter:hit_recovery_finish()
    self:setBBVar("hit_recovery_direction", nil)
 end
 
-function CMainCharacter:_stopAttackAnimationTimer()
-   if self.attackAnimationTimeStart then
-      self.attackAnimationTimeStart:stop()
-      self.attackAnimationTimeStart = nil
-   end
-end
-
-function CMainCharacter:_resetAttackAnimationTimer()
-   self:_stopAttackAnimationTimer()
-   self.attackAnimationTimeStart = runTimerAdv(math.huge)
-end
-
-function CMainCharacter:_getAttackAnimationTime()
-   local timer = self.attackAnimationTimeStart
-   return timer and timer.getTimeDuration and timer:getTimeDuration() or 0
-end
-
 function CMainCharacter:attack_ranged_running()
    local currentWeapon = self:getWeaponSlotItem()
 
@@ -1463,7 +1449,6 @@ function CMainCharacter:attack_ranged_running()
       self:_startSafeCooldownTimer()
    end
 
-   self:_resetAttackAnimationTimer()
    if currentWeapon:isMagazineEmpty() then
       if currentWeapon:getAvailableAmmoItem() and getGlobalParam("firstTimeReloading") then
          gameplayUI.annoyingHintUI:addTask(function()
@@ -1510,14 +1495,12 @@ end
 
 function CMainCharacter:startCooldown()
    local coolDownTime = 0
-   local attackAnimationTimeElapsed = math.min(self:_getAttackAnimationTime(), 2)
-   self:_stopAttackAnimationTimer()
 
    local gun = self:getWeaponSlotItem()
    if gun then
       coolDownTime = gun:getCooldown()
    end
-   coolDownTime = math.max(0, coolDownTime - attackAnimationTimeElapsed)
+   coolDownTime = math.max(0, coolDownTime)
 
    runTimerAdv(coolDownTime, false, self.coolDown, self)
 end
@@ -1835,7 +1818,10 @@ end
 
 function CMainCharacter:onUnequipEventIn(forceAutoAssign)
    self:holsterWeapon(true, forceAutoAssign)
-   self:move_start() -- TODO: playCycle is called all over the place with aiming animations. see if aiming animations could be moved to ai tree
+   --self:move_start() -- TODO: playCycle is called all over the place with aiming animations. see if aiming animations could be moved to ai tree
+   --Temporary crutch - move_start would make MC move after npc initiated a dialog during attack
+   local moveParams = self:getMovementParameters()
+   self:animatedMoveEvent(moveParams.moveType, moveParams.dirType)
 end
 
 function CMainCharacter:onEquipEventIn()
@@ -1858,9 +1844,9 @@ function CMainCharacter:onEquipEventIn()
    self:setBBVar("itemToEquip", nil)
 end
 
-function CMainCharacter:useItem(item)
+function CMainCharacter:useItem(item, force)
    if item ~= self:getWeaponSlotItem() then self:tryCancelReloading() end
-   if self:getState("blockItemUse") then return end
+   if self:getState("blockItemUse") and not force then return end
 
    if item and item ~= self:getWeaponSlotItem() then
       local itemName = item:getItemName()
@@ -1937,12 +1923,21 @@ function CMainCharacter:tryInteract(obj)
          if not self:checkRemoveItems(obj) then
             return
          end
+      elseif interactType == "abori_lock" then
+         local characterHasKey = obj:characterHasKey(self)
+         if not obj.activated and not characterHasKey then
+            gameplayUI:showInfoTextEx("This needs some sort of a key", "minor", "")
+            return
+         end
       elseif interactType == "bed" then
          local bedOwnerName = obj:getOwnerName()
          if bedOwnerName and bedOwnerName ~= "player" then
             gameplayUI:showInfoTextEx("It's not your bed", "minor", "")
             return
          end
+         self:setBBVar("massCoeff", self:getMassCoeff())
+         self:setMassCoeff(0)
+         self:setState("bed_resting", true)
       elseif interactType == "mine" then
          if obj:isDepleted(self) then
             gameplayUI:showInfoTextEx("There is nothing to mine here", "minor", "")
@@ -1962,9 +1957,9 @@ function CMainCharacter:tryInteract(obj)
             self:forceStopResting()
             return
          else
+            getScene():tryAutoSave()
             self:setState("resting", true)
             self:setBBVar("interactObject", obj)
-            getScene():tryAutoSave()
             return
          end
       elseif interactType == "ladder" then
@@ -1983,7 +1978,7 @@ function CMainCharacter:tryInteract(obj)
                count = count + 1
             end
          end
-         if count <= 0 then
+         if count <= 1 then
             gameplayUI:showInfoTextEx("I should explore more places", "minor", "")
             return
          end
@@ -1997,7 +1992,13 @@ function CMainCharacter:tryInteract(obj)
          if obj.lockObject then
             gameplayUI:showInfoTextEx("Remotely locked", "minor", "")
             return
+         elseif not obj.code and obj.lockType == "unpickable" then
+            gameplayUI:showInfoTextEx("Can't be unlocked", "minor", "")
+            return
          end
+      elseif interactType == "unauthorized_access" then
+         questSystem:fireEvent("unauthorized_access", obj:getName(), obj)
+         return
       end
       self:setBBVar("interactObject", obj)
       self:setBBVar("interactType", interactType) --cache it, in case it changes during interaction
@@ -2026,17 +2027,14 @@ function CMainCharacter:interact_running()
          self:setState("hipFire", false) --So the animations won't be warped with rotateBone
       end
 
-      self:animatedMoveEvent("idle")
+      self:resetSpeed()
+      self.animationsManager:playCycle("idle")
       self:setState("interactStopUponActivate", true)
       self:setDisableActionStates(true) --TODO:FIXME: maybe unnecessary, if this AI action is of high priority
 
       if data then
          if data.noEscape then
             self:setState("interactStopUponActivate", false)
-         end
-
-         if data.holdButton then
-            self:setState("interactStopUponActivateUp", true)
          end
 
          --Anchor if needed
@@ -2079,7 +2077,11 @@ function CMainCharacter:interact_running()
          --Show interaction progress
          --It's not in else of 'if animations' check because you might want to use loop + interact window
          if data.time and data.time ~= 0 then
-            gameplayUI.interactProgressUI:setup("Installing", data.time)
+            gameplayUI.interactProgressUI:setup("Interacting", data.time)
+
+            if data.holdButton then
+               self:setState("interactStopUponActivateUp", true)
+            end
 
             coro.wait(data.time)
 
@@ -2159,7 +2161,11 @@ end
 
 function CMainCharacter:onObjectActivate(obj, interactType)
    interactType = interactType or self:getBBVar("interactType")
-   if interactType == "container" then
+   if interactType == "activator" then
+      if obj.jammed then
+         gameplayUI:showInfoTextEx("It's jammed", "minor", "")
+      end
+   elseif interactType == "container" then
       self.exchangeTarget = obj
       gameplayUI.inventoryPlayer:show(true)
       obj:showInventory(true)
@@ -2168,13 +2174,22 @@ function CMainCharacter:onObjectActivate(obj, interactType)
       if characterHasKey then
          gameplayUI:showInfoTextEx("Opened with " .. ItemsData.getItemLabel(characterHasKey), "minor", "")
          obj:setLockState(false)
-      elseif obj.code then
-         gameplayUI.combLockUI:show(true)
+         self:interactStop()
       else
-         gameplayUI:showInfoTextEx("Locked", "minor", "")
+         local cantUnlock = true
+         if obj.code then
+            gameplayUI.combLockUI:show(true)
+            cantUnlock = false
+         end
+         if obj.lockPoints and obj.lockType ~= "unlocked" then
+            gameplayUI.lockpickingUI:show(true)
+            cantUnlock = false
+         end
+         if cantUnlock then
+            gameplayUI:showInfoTextEx("Locked", "minor", "")
+         end
       end
    elseif interactType == "bed" then
-      getScene():tryAutoSave()
       gameplayUI:closeUI()
       gameplayUI.waitingUI:show(true)
       gameplayUI.billboardUI:setup("Sleeping", string.format("Press '%s' to get up", getButtonCurrentKeyName("ACTIVATE")))
@@ -2189,8 +2204,8 @@ function CMainCharacter:onObjectActivate(obj, interactType)
       end
    elseif interactType == "item" then
       obj:OnAltActivate()
-      obj:destroy()
       gameplayUI:showInventoryPickInfo(obj:getLabel() .. " was removed from Inventory")
+      obj:destroy()
    elseif interactType == "mine" then
       if not obj:isDepleted(self) then
          local pickaxe = self.inventory:getItemByName("pickaxe.wpn")
@@ -2263,7 +2278,10 @@ function CMainCharacter:onObjectActivate(obj, interactType)
       gameplayUI.terminal.activeTerminal = obj
       self:updateCamera()
    end
-   questSystem:fireEvent("activate", obj:getName(), obj)
+   --TODO:FIXME: Think about implementing that kind of item destruction into the interaction system
+   if hlp.isOperable(obj) then --A check for dynamic items that are picked up and destroyed
+      questSystem:fireEvent("activate", obj:getName(), obj)
+   end
 end
 
 function CMainCharacter:onObjectDeactivate(obj, interactType)
@@ -2273,10 +2291,18 @@ function CMainCharacter:onObjectDeactivate(obj, interactType)
       self.exchangeTarget = nil
    elseif interactType == "lockable" then
       gameplayUI.combLockUI:show(false)
+      gameplayUI.lockpickingUI:show(false)
    elseif interactType == "bed" then
       gameplayUI.billboardUI:show(false)
       gameplayUI.restHintUI:show(false)
       gameplayUI.waitingUI:show(false)
+      self:setCollisionObjects(true)
+      self:setMassCoeff(self:getBBVar("massCoeff"))
+      self:setState("bed_resting", false)
+      local pos = localPointToWorld(vec3New(0,-10,-20), self:getPose())
+      --Workaround for sinking
+      self:moveAndOrientate(pos, vec3RotateQuat({x=0,y=0,z=1}, obj:getPose():getRotQuat()), 0.4)
+      getScene():tryAutoSave()
    elseif interactType == "mine" or interactType == "dig" then
       self.inventory:unequipSlot(self:getWeaponSlot())
       self.animationsManager:clearCallbacks(self.gatherAnimation)
@@ -2506,7 +2532,9 @@ function CMainCharacter:startTalk(char)
       self:tryCancelUnequipping()
       self:unequipItem(self:getWeaponSlotItem())
       self:setState("talk", true)
-      self:setOrientationSpeed(0)
+      self:resetSpeed()
+      self:setDisableActionStates(true)
+      self.animationsManager:playCycle("idle")
       self:moveAndOrientate(self:getPose():getPos(), vec3Normalize(vec3Sub(char:getPose():getPos(), self:getPose():getPos())), 0.5)
       self:updateCamera()
 
@@ -2538,6 +2566,7 @@ function CMainCharacter:stopTalk(char)
       self.dialogTarget = nil
    end
    self:setState("talk", false)
+   self:setDisableActionStates(false)
    CPlayer.stopTalk(self, char)
    return true
 end
@@ -2751,6 +2780,7 @@ function CMainCharacter:reload_running()
 
       coro.waitAnimationEventIn(self, animations, "reload")
 
+      self:setState("waitReloadEnd", true)
       weapon:OnLoadGun()
       ImmersiveUI.triggerUI("weapon")
 

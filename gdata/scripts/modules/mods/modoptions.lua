@@ -31,16 +31,12 @@ end
 function modoptions:retrieveValue(filename, label)
 	local values = persistence.load( "./modoptions/" ..  filename)
 	for i, value in ipairs(values.options) do
-
 		if value.label == label then
 			return value.defaultvalue
 		end
 	end
 
 end
-
-
-
 
 function saveModOptionsConfig(args)
 	for i=1,#modoptions.loadedoptions do
@@ -96,32 +92,13 @@ function ModoptionsMenu(args)
 	scrollarea = modoptions.wnd:getChild("BlackBack/ScrollablePane")
 	local mod_options = getFolderElements("\\modoptions\\*.lua", false, true)
 	for i=1,#mod_options do
-
 		headerspacing = 140*(i-1)
 		modoptions.loadedoptions[i] = {filename = mod_options[i], persistence.load( "./modoptions/" ..  mod_options[i])}
 		local labelheader = modoptions.scrollarea:createChild("TaharezLook/StaticText", modoptions.loadedoptions[i].filename ..":".. i)
-		labelheader:setProperty("Area", "{{0,0},{0,0},{1,0},{0.05,0}}")
-		labelheader:setProperty("FrameEnabled", "false")
-		labelheader:setProperty("FrameColours", "A000000")
-		labelheader:setProperty("Font", "decor-10")
-		labelheader:setProperty("MouseInputPropagationEnabled", "false")
-		labelheader:setProperty("BackgroundEnabled", "false")
-		labelheader:setProperty("TextColours", "FFFFFFFF")
-		labelheader:setText(string.format(" %s ", modoptions.loadedoptions[i][1].name))
-		local pos = CEGUI.UVector2(CEGUI.UDim(0,0), CEGUI.UDim(0,headerspacing+(optionspacing*optionscount)))
-		labelheader:setPosition(pos)
-
+		propertytemplate(labelheader, "decor-10", string.format(" %s ", modoptions.loadedoptions[i][1].name),CEGUI.UVector2(CEGUI.UDim(0,0), CEGUI.UDim(0,headerspacing+(optionspacing*optionscount))))
 		for j, addoption in ipairs(modoptions.loadedoptions[i][1].options) do
 			local label = modoptions.scrollarea:createChild("TaharezLook/StaticText", modoptions.loadedoptions[i][1].name..":".. j)
-			label:setProperty("Area", "{{0,0},{0,0},{1,0},{0.05,0}}")
-			label:setProperty("FrameEnabled", "false")
-			label:setProperty("BackgroundEnabled", "false")
-			label:setProperty("Font", "dialog-12")
-			label:setProperty("MouseInputPropagationEnabled", "false")
-			label:setProperty("TextColours", "FFFFFFFF")
-			label:setText(string.format(" %s ", addoption.label))
-			local labelpos = CEGUI.UVector2(CEGUI.UDim(0,0), CEGUI.UDim(0,headerspacing+(optionspacing*optionscount)+50))
-			label:setPosition(labelpos)
+			propertytemplate(label, "dialog-12",string.format(" %s ", addoption.label), CEGUI.UVector2(CEGUI.UDim(0,0), CEGUI.UDim(0,headerspacing+(optionspacing*optionscount)+50)))
 			if addoption.element == "checkbox" then
 				checkboxtemplate(label, modoptions.loadedoptions[i][1].name, addoption.element, addoption.defaultvalue, j, 800, i)
 			elseif addoption.element == "radio" then
@@ -135,6 +112,17 @@ function ModoptionsMenu(args)
 	end
 	guiContext:setRootWindow(modoptions.wnd)
 	modoptions.wnd:moveToFront()
+end
+
+function propertytemplate(element, usedfont, text, pos)
+	element:setProperty("Area", "{{0,0},{0,0},{1,0},{0.05,0}}")
+	element:setProperty("FrameEnabled", "false")
+	element:setProperty("Font", usedfont)
+	element:setProperty("MouseInputPropagationEnabled", "false")
+	element:setProperty("BackgroundEnabled", "false")
+	element:setProperty("TextColours", "FFFFFFFF")
+	element:setText(text)
+	element:setPosition(pos)
 end
 
 function checkboxtemplate(label, name, element, defaultvalue, count, position, index)

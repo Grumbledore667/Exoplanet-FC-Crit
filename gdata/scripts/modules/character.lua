@@ -261,6 +261,12 @@ function CCharacter:setOrientationGlobal(angle)
    self:getPose():setRot({y=angle})
 end
 
+function CCharacter:resetSpeed()
+   self:setMoveSpeed(0)
+   self:setStrafeSpeed(0)
+   self:setOrientationSpeed(0)
+end
+
 function CCharacter:setInstaller(obj)
    self.installer = obj
 end
@@ -1136,6 +1142,12 @@ function CCharacter:setupStyle(style, styleName)
    --clear prev attachments
    for _, attachment in pairs(self.style.attachments) do
       hlp.safeDestroyEntity(attachment.entity)
+      if attachment.lights then
+         for _, lightData in pairs(attachment.lights) do
+            hlp.safeDestroyEntity(lightData.entity)
+         end
+         attachment.lights = {}
+      end
       attachment.entity = nil
    end
 
@@ -1173,7 +1185,7 @@ function CCharacter:setupAttachments()
    local destroyHair = false
    for _, attachment in pairs(self.style.attachments) do
       self:setupAttachment(attachment)
-      if attachment.name:find("hat") or attachment.name:find("turban") or attachment.name:find("mask") or attachment.name:find("helmet") then
+      if not attachment.name:find("hulk") and (attachment.name:find("hat") or attachment.name:find("turban") or attachment.name:find("mask") or attachment.name:find("helmet")) then
          destroyHair = true
       end
    end
@@ -1200,6 +1212,28 @@ function CCharacter:setupAttachment(attachment)
    end
    if attachment.texture then
       hlp.setTextureAndNormalMap(entity, 0, attachment.texture)
+   end
+   if attachment.lights then
+      for _, lightData in ipairs(attachment.lights) do
+         local light = self:createAspect("omni")
+         light:getPose():setParent(entity:getPose())
+         light:getPose():resetLocalPose()
+
+         if lightData.pos then
+            light:getPose():setLocalPos(lightData.pos)
+         end
+         if lightData.color then
+            light:setColor(lightData.color)
+         end
+         if lightData.radius then
+            light:setRadius(lightData.radius)
+         end
+         if lightData.intensity then
+            light:setIntensity(lightData.intensity)
+         end
+
+         lightData.entity = light
+      end
    end
    attachment.entity = entity
 end
@@ -1277,17 +1311,28 @@ function CCharacter:onStartDialog(animator)
    end
 end
 
+function CCharacter:isTalkAnimAllowed(animation)
+   local weapon = self:getWeaponSlotItem()
+   if tablex.search(self.style.attachments or {}, "item_slot1") or (weapon and weapon:getItemName() ~= "hand_to_hand.wpn") then
+      if not tablex.find(self.animations.talk.allows_rhand_weapon, animation) then
+         return false
+      end
+   end
+   return true
+end
+
 -- consider moving to CNPC once it becomes an exclusive base class
 -- for all talkable characters
 function CCharacter:onStartMessage(animation)
    if self.dialogAnimationAllowed then
       if animation then
-         self._randomTalkAnim = animation
-         self.animationsManager:playAction(self._randomTalkAnim)
+         if self:isTalkAnimAllowed(animation) and self.animationsManager:playActionExclusively(animation) then
+            self._randomTalkAnim = animation
+         end
       elseif self.dialogAnimator then
          local nextAnimation = self.dialogAnimator:next(self:getPrefabName())
          if nextAnimation then
-            if self.animationsManager:playActionExclusively(nextAnimation) then
+            if self:isTalkAnimAllowed(nextAnimation) and self.animationsManager:playActionExclusively(nextAnimation) then
                self._randomTalkAnim = nextAnimation
             end
          else
@@ -1566,6 +1611,15 @@ function CCharacter:isDisabled()
    return self.disabled
 end
 
+--TODO:FIXME: decide upon either enable+disable or setDisable method and make it universal for every class
+function CCharacter:enable()
+   self:setDisabled(false)
+end
+
+function CCharacter:disable()
+   self:setDisabled(true)
+end
+
 function CCharacter:setDisabled(state)
    if self:isDisabled() == state then return end
    self.disabled = state
@@ -1579,14 +1633,14 @@ function CCharacter:setDisabled(state)
    end
    self:setVisible(not state)
    self:setActive(not state)
-   for _, item in ipairs (self.inventory.slots) do
+   for _, item in ipairs(self.inventory.slots) do
       if state then
          item:hide()
       else
          item:show()
       end
    end
-   for _, attachment in pairs (self.style.attachments) do
+   for _, attachment in pairs(self.style.attachments) do
       attachment.entity:setVisible(not state)
    end
 end
@@ -1614,6 +1668,8 @@ function CCharacter:OnSaveState(state)
 
    state.inventory = self:getInventory():serialize()
    state.interactor = self.interactor:getRaycastActive()
+
+   state.dialogAnimationAllowed = self.dialogAnimationAllowed
 end
 
 function CCharacter:OnLoadState(state)
@@ -1654,6 +1710,8 @@ function CCharacter:OnLoadState(state)
    self:setDisabled(state.disabled) --Will only execute if the current state is different
 
    self:setAttitudeToMainCharacter(state.attitudeToMainCharacter)
+
+   self.dialogAnimationAllowed = state.dialogAnimationAllowed
 end
 
 return {CCharacter=CCharacter}
